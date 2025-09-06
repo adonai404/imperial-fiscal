@@ -43,13 +43,13 @@ export const ExcelUpload = () => {
         };
       });
 
-      // Check if we have any valid rows
+      // Check if we have any valid rows (only empresa is required)
       const validRowsCount = processedData.filter(row => 
-        row.empresa && row.cnpj && row.periodo
+        row.empresa && row.empresa.trim() !== ''
       ).length;
 
       if (validRowsCount === 0) {
-        alert('Nenhum dado válido encontrado no arquivo. Verifique se as colunas Empresa, CNPJ e Período estão preenchidas.');
+        alert('Nenhum dado válido encontrado no arquivo. Verifique se a coluna Empresa está preenchida.');
         return;
       }
 
@@ -130,8 +130,8 @@ export const ExcelUpload = () => {
         <div className="mt-4 text-sm text-muted-foreground">
           <p><strong>Formato aceito:</strong></p>
           <p>Colunas: Empresa, CNPJ, Período, RBT12, entrada, saída, imposto</p>
-          <p><strong>Flexível:</strong> Valores em branco são aceitos e tratados como 0</p>
-          <p><strong>Obrigatório:</strong> Apenas Empresa, CNPJ e Período são campos obrigatórios</p>
+          <p><strong>Flexível:</strong> Valores em branco são aceitos e tratados como null</p>
+          <p><strong>Obrigatório:</strong> Apenas o nome da Empresa é campo obrigatório</p>
         </div>
       </CardContent>
     </Card>

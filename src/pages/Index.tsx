@@ -1,82 +1,98 @@
 import { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/AppSidebar';
 import { Dashboard } from '@/components/Dashboard';
 import { ExcelUpload } from '@/components/ExcelUpload';
 import { CompanyList } from '@/components/CompanyList';
 import { CompanyDetails } from '@/components/CompanyDetails';
-import { BarChart3, Upload, Building2 } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 
 const Index = () => {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>();
+  const [activeSection, setActiveSection] = useState('dashboard');
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto py-6 px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Sistema Fiscal Empresarial</h1>
-          <p className="text-muted-foreground">
-            Gerencie e visualize dados fiscais de empresas importados de planilhas Excel
-          </p>
-        </div>
-
-        <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="import" className="flex items-center gap-2">
-              <Upload className="h-4 w-4" />
-              Importação
-            </TabsTrigger>
-            <TabsTrigger value="companies" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Empresas
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="dashboard" className="mt-0">
-            <Dashboard />
-          </TabsContent>
-
-          <TabsContent value="import" className="mt-0">
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'dashboard':
+        return <Dashboard />;
+      
+      case 'import':
+        return (
+          <div>
             <ExcelUpload />
             <div className="mt-6 p-6 bg-muted/30 rounded-lg">
               <h3 className="text-lg font-semibold mb-3">Instruções de Importação</h3>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p><strong>Formato esperado:</strong> Arquivo Excel (.xlsx ou .xls)</p>
-                <p><strong>Colunas aceitas:</strong> Empresa, CNPJ, Período, RBT12, entrada, saída, imposto</p>
+                <p><strong>Campo obrigatório:</strong> Apenas o nome da Empresa</p>
+                <p><strong>Campos opcionais:</strong> CNPJ, Período, RBT12, entrada, saída, imposto</p>
                 <p><strong>Flexibilidade:</strong> O sistema aceita planilhas com valores em branco ou incompletos</p>
-                <p><strong>Tratamento:</strong> Valores ausentes são armazenados como 0, não impedindo a importação</p>
+                <p><strong>Tratamento:</strong> Valores ausentes são armazenados como null, não impedindo a importação</p>
               </div>
             </div>
-          </TabsContent>
+          </div>
+        );
+      
+      case 'companies':
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1">
+              <CompanyList
+                onSelectCompany={setSelectedCompanyId}
+                selectedCompanyId={selectedCompanyId}
+              />
+            </div>
+            <div className="lg:col-span-2">
+              {selectedCompanyId ? (
+                <CompanyDetails companyId={selectedCompanyId} />
+              ) : (
+                <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center">
+                  <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-lg text-muted-foreground">
+                    Selecione uma empresa para visualizar os detalhes
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      
+      default:
+        return <Dashboard />;
+    }
+  };
 
-          <TabsContent value="companies" className="mt-0">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1">
-                <CompanyList
-                  onSelectCompany={setSelectedCompanyId}
-                  selectedCompanyId={selectedCompanyId}
-                />
-              </div>
-              <div className="lg:col-span-2">
-                {selectedCompanyId ? (
-                  <CompanyDetails companyId={selectedCompanyId} />
-                ) : (
-                  <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center">
-                    <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-lg text-muted-foreground">
-                      Selecione uma empresa para visualizar os detalhes
-                    </p>
-                  </div>
-                )}
-              </div>
+  return (
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar 
+          activeSection={activeSection} 
+          onSectionChange={setActiveSection} 
+        />
+        
+        <SidebarInset className="flex-1">
+          <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
+            <SidebarTrigger className="-ml-1" />
+            <div className="flex-1">
+              <h1 className="text-xl font-semibold">
+                {activeSection === 'dashboard' && 'Dashboard'}
+                {activeSection === 'import' && 'Importação de Dados'}
+                {activeSection === 'companies' && 'Gestão de Empresas'}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {activeSection === 'dashboard' && 'Visualize estatísticas gerais do sistema'}
+                {activeSection === 'import' && 'Importe dados de planilhas Excel'}
+                {activeSection === 'companies' && 'Gerencie e visualize dados das empresas'}
+              </p>
             </div>
-          </TabsContent>
-        </Tabs>
+          </header>
+          
+          <main className="flex-1 p-6">
+            {renderContent()}
+          </main>
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
