@@ -6,7 +6,6 @@ export interface Company {
   id: string;
   name: string;
   cnpj: string;
-  user_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -193,18 +192,11 @@ export const useAddCompany = () => {
 
   return useMutation({
     mutationFn: async (companyData: { name: string; cnpj?: string }) => {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
-        throw new Error('Usuário não autenticado');
-      }
-
       const { data, error } = await supabase
         .from('companies')
         .insert({
           name: companyData.name.trim(),
           cnpj: companyData.cnpj?.trim() || null,
-          user_id: user.id,
         })
         .select()
         .single();
