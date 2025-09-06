@@ -12,6 +12,76 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { useForm } from 'react-hook-form';
 import * as XLSX from 'xlsx';
 
+// Helper function to parse fiscal period to Date for comparison
+const parsePeriodToDate = (period: string): Date => {
+  if (!period || period.trim() === '') {
+    return new Date(0); // Return epoch for invalid periods
+  }
+
+  const periodStr = period.toLowerCase().trim();
+  
+  // Month names mapping
+  const monthNames: { [key: string]: number } = {
+    'janeiro': 0, 'fevereiro': 1, 'março': 2, 'marco': 2, 'abril': 3,
+    'maio': 4, 'junho': 5, 'julho': 6, 'agosto': 7,
+    'setembro': 8, 'outubro': 9, 'novembro': 10, 'dezembro': 11,
+    'jan': 0, 'fev': 1, 'mar': 2, 'abr': 3, 'mai': 4, 'jun': 5,
+    'jul': 6, 'ago': 7, 'set': 8, 'out': 9, 'nov': 10, 'dez': 11
+  };
+
+  // Try different patterns
+  const patterns = [
+    // "Janeiro/2024", "Dezembro/2023"
+    /^([a-zç]+)\/(\d{4})$/,
+    // "Jan/2024", "Dez/2023"
+    /^([a-zç]+)\/(\d{4})$/,
+    // "01/2024", "12/2023"
+    /^(\d{1,2})\/(\d{4})$/,
+    // "2024-01", "2023-12"
+    /^(\d{4})-(\d{1,2})$/,
+    // "Janeiro 2024", "Dezembro 2023"
+    /^([a-zç]+)\s+(\d{4})$/,
+    // "Jan 2024", "Dez 2023"
+    /^([a-zç]+)\s+(\d{4})$/
+  ];
+
+  for (const pattern of patterns) {
+    const match = periodStr.match(pattern);
+    if (match) {
+      let month: number;
+      const year = parseInt(match[2], 10);
+
+      if (isNaN(year) || year < 1900 || year > 2100) {
+        continue;
+      }
+
+      // Check if first group is a month name
+      if (monthNames[match[1]]) {
+        month = monthNames[match[1]];
+      } else {
+        // Check if it's a numeric month
+        const numericMonth = parseInt(match[1], 10);
+        if (!isNaN(numericMonth) && numericMonth >= 1 && numericMonth <= 12) {
+          month = numericMonth - 1; // JavaScript months are 0-based
+        } else {
+          continue;
+        }
+      }
+
+      return new Date(year, month, 1);
+    }
+  }
+
+  // If no pattern matches, try to parse as a regular date
+  const fallbackDate = new Date(period);
+  if (!isNaN(fallbackDate.getTime())) {
+    return fallbackDate;
+  }
+
+  // Return epoch for unparseable periods
+  return new Date(0);
+};
+
 interface CompanyDetailsProps {
   companyId: string;
 }
@@ -53,8 +123,8 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
       
       switch (sortField) {
         case 'period':
-          aValue = a.period;
-          bValue = b.period;
+          aValue = parsePeriodToDate(a.period).getTime();
+          bValue = parsePeriodToDate(b.period).getTime();
           break;
         case 'entrada':
           aValue = a.entrada || 0;
@@ -404,8 +474,8 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-80 min-h-64">
+                  <ResponsiveContainer width="100%" height={320}>
                     <LineChart data={sortedAndFilteredData.slice().reverse()}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis 
@@ -552,7 +622,7 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
                 ))}
                 {sortedAndFilteredData.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       <Calculator className="h-12 w-12 mx-auto mb-4" />
                       <p>Nenhum dado fiscal encontrado</p>
                     </TableCell>

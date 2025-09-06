@@ -30,7 +30,7 @@ export function AppSidebar({
   const location = useLocation();
   const isActive = (sectionId: string) => activeSection === sectionId;
   const isCollapsed = state === 'collapsed';
-  return <Sidebar className={isCollapsed ? "w-14" : "w-60"} collapsible="icon">
+  return <Sidebar collapsible="icon">
       <SidebarHeader className="flex flex-row items-center justify-between p-4">
         {!isCollapsed && <div>
             <h2 className="text-lg font-semibold text-sidebar-foreground">Dados fiscais</h2>
