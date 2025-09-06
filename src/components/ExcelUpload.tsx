@@ -23,28 +23,37 @@ export const ExcelUpload = () => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      // Transform data to match expected structure
-      const processedData = jsonData.map((row: any) => ({
-        empresa: row.Empresa || row.empresa || '',
-        cnpj: String(row.CNPJ || row.cnpj || '').replace(/\D/g, ''),
-        periodo: String(row.Período || row.periodo || row.Periodo || ''),
-        rbt12: parseFloat(row.RBT12 || row.rbt12 || 0),
-        entrada: parseFloat(row.entrada || row.Entrada || 0),
-        saida: parseFloat(row.saída || row.saida || row.Saída || row.Saida || 0),
-        imposto: parseFloat(row.imposto || row.Imposto || 0),
-      }));
+      // Transform data to match expected structure with flexible parsing
+      const processedData = jsonData.map((row: any) => {
+        // Helper function to safely parse numbers
+        const parseNumber = (value: any): number | null => {
+          if (value === null || value === undefined || value === '') return null;
+          const parsed = parseFloat(String(value).replace(/[^\d.,-]/g, '').replace(',', '.'));
+          return isNaN(parsed) ? null : parsed;
+        };
 
-      // Validate data
-      const validData = processedData.filter(row => 
+        return {
+          empresa: String(row.Empresa || row.empresa || '').trim(),
+          cnpj: String(row.CNPJ || row.cnpj || '').replace(/\D/g, ''),
+          periodo: String(row.Período || row.periodo || row.Periodo || '').trim(),
+          rbt12: parseNumber(row.RBT12 || row.rbt12),
+          entrada: parseNumber(row.entrada || row.Entrada),
+          saida: parseNumber(row.saída || row.saida || row.Saída || row.Saida),
+          imposto: parseNumber(row.imposto || row.Imposto),
+        };
+      });
+
+      // Check if we have any valid rows
+      const validRowsCount = processedData.filter(row => 
         row.empresa && row.cnpj && row.periodo
-      );
+      ).length;
 
-      if (validData.length === 0) {
-        alert('Nenhum dado válido encontrado no arquivo. Verifique se as colunas estão corretas: Empresa, CNPJ, Período, RBT12, entrada, saída, imposto');
+      if (validRowsCount === 0) {
+        alert('Nenhum dado válido encontrado no arquivo. Verifique se as colunas Empresa, CNPJ e Período estão preenchidas.');
         return;
       }
 
-      await importMutation.mutateAsync(validData);
+      await importMutation.mutateAsync(processedData);
     } catch (error) {
       console.error('Error processing file:', error);
       alert('Erro ao processar o arquivo. Verifique se é um arquivo Excel válido.');
@@ -119,8 +128,10 @@ export const ExcelUpload = () => {
           />
         </div>
         <div className="mt-4 text-sm text-muted-foreground">
-          <p><strong>Formato esperado:</strong></p>
+          <p><strong>Formato aceito:</strong></p>
           <p>Colunas: Empresa, CNPJ, Período, RBT12, entrada, saída, imposto</p>
+          <p><strong>Flexível:</strong> Valores em branco são aceitos e tratados como 0</p>
+          <p><strong>Obrigatório:</strong> Apenas Empresa, CNPJ e Período são campos obrigatórios</p>
         </div>
       </CardContent>
     </Card>
