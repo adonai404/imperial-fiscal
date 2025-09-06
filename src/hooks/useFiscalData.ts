@@ -107,15 +107,13 @@ export const useImportExcel = () => {
       saida: number | null;
       imposto: number | null;
     }>) => {
-      // Filter out rows without essential data (empresa, cnpj, periodo)
+      // Filter out rows without essential data (only empresa is required now)
       const validRows = data.filter(row => 
-        row.empresa && 
-        row.cnpj && 
-        row.periodo
+        row.empresa && row.empresa.trim()
       );
 
       if (validRows.length === 0) {
-        throw new Error('Nenhum registro válido encontrado. Verifique se as colunas Empresa, CNPJ e Período estão preenchidas.');
+        throw new Error('Nenhum registro válido encontrado. Verifique se a coluna Empresa está preenchida.');
       }
 
       // Process companies first
@@ -123,38 +121,49 @@ export const useImportExcel = () => {
       const uniqueCompanies = [];
 
       for (const row of validRows) {
-        if (!companiesMap.has(row.cnpj)) {
-          companiesMap.set(row.cnpj, row.empresa);
+        // Use CNPJ if available, otherwise generate a unique key from company name
+        const companyKey = row.cnpj && row.cnpj.trim() ? row.cnpj.trim() : `company_${row.empresa.trim().toLowerCase().replace(/\s+/g, '_')}`;
+        
+        if (!companiesMap.has(companyKey)) {
+          companiesMap.set(companyKey, {
+            name: row.empresa.trim(),
+            cnpj: row.cnpj && row.cnpj.trim() ? row.cnpj.trim() : null,
+            id: null // Will be filled after insert
+          });
           uniqueCompanies.push({
-            name: row.empresa,
-            cnpj: row.cnpj,
+            name: row.empresa.trim(),
+            cnpj: row.cnpj && row.cnpj.trim() ? row.cnpj.trim() : null,
           });
         }
       }
 
-      // Insert companies (using upsert to handle duplicates)
+      // Insert companies (using upsert, but without onConflict since CNPJ can be null)
       const { data: companies, error: companiesError } = await supabase
         .from('companies')
-        .upsert(uniqueCompanies, { onConflict: 'cnpj' })
+        .upsert(uniqueCompanies)
         .select();
 
       if (companiesError) throw companiesError;
 
-      // Create a map of CNPJ to company ID
-      const cnpjToIdMap = new Map();
+      // Create a map of company key to company ID
+      const companyKeyToIdMap = new Map();
       companies?.forEach(company => {
-        cnpjToIdMap.set(company.cnpj, company.id);
+        const companyKey = company.cnpj ? company.cnpj : `company_${company.name.toLowerCase().replace(/\s+/g, '_')}`;
+        companyKeyToIdMap.set(companyKey, company.id);
       });
 
       // Prepare fiscal data with null/0 handling
-      const fiscalDataRows = validRows.map(row => ({
-        company_id: cnpjToIdMap.get(row.cnpj),
-        period: row.periodo,
-        rbt12: row.rbt12 || 0,
-        entrada: row.entrada || 0,
-        saida: row.saida || 0,
-        imposto: row.imposto || 0,
-      }));
+      const fiscalDataRows = validRows.map(row => {
+        const companyKey = row.cnpj && row.cnpj.trim() ? row.cnpj.trim() : `company_${row.empresa.trim().toLowerCase().replace(/\s+/g, '_')}`;
+        return {
+          company_id: companyKeyToIdMap.get(companyKey),
+          period: row.periodo || 'Não informado',
+          rbt12: row.rbt12 || 0,
+          entrada: row.entrada || 0,
+          saida: row.saida || 0,
+          imposto: row.imposto || 0,
+        };
+      });
 
       // Insert fiscal data (using upsert to handle duplicates)
       const { error: fiscalError } = await supabase

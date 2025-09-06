@@ -16,21 +16,21 @@ export type Database = {
     Tables: {
       companies: {
         Row: {
-          cnpj: string
+          cnpj: string | null
           created_at: string
           id: string
           name: string
           updated_at: string
         }
         Insert: {
-          cnpj: string
+          cnpj?: string | null
           created_at?: string
           id?: string
           name: string
           updated_at?: string
         }
         Update: {
-          cnpj?: string
+          cnpj?: string | null
           created_at?: string
           id?: string
           name?: string
