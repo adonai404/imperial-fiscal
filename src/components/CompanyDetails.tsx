@@ -88,7 +88,7 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
 
     const exportData = sortedAndFilteredData.map(item => ({
       'Empresa': company.name,
-      'CNPJ': company.cnpj,
+      'CNPJ': company.cnpj || 'N/A',
       'Período': item.period,
       'RBT12': item.rbt12,
       'Entrada': item.entrada,
@@ -165,7 +165,10 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
             </Button>
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            CNPJ: {company.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+            CNPJ: {company.cnpj 
+              ? company.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+              : 'N/A'
+            }
           </p>
         </CardHeader>
         <CardContent>

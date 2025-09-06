@@ -15,7 +15,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
 
   const filteredCompanies = companies?.filter(company =>
     company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    company.cnpj.includes(searchTerm)
+    (company.cnpj && company.cnpj.includes(searchTerm))
   );
 
   if (isLoading) {
@@ -76,7 +76,10 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {company.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+                    {company.cnpj 
+                      ? company.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+                      : 'N/A'
+                    }
                   </TableCell>
                   <TableCell>
                     {new Date(company.created_at).toLocaleDateString('pt-BR')}
