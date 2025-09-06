@@ -59,7 +59,7 @@ export const useCompaniesWithLatestFiscalData = () => {
         .from('companies')
         .select(`
           *,
-          fiscal_data!inner(rbt12, entrada, saida, imposto, period, created_at)
+          fiscal_data(rbt12, entrada, saida, imposto, period, created_at)
         `)
         .order('name');
       

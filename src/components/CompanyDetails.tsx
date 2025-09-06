@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useCompanyWithData, useAddFiscalData, useImportCompanyExcel } from '@/hooks/useFiscalData';
 import { Download, ArrowUpDown, Building2, Calculator, Plus, Upload, FileDown } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useForm } from 'react-hook-form';
 import * as XLSX from 'xlsx';
 
@@ -379,11 +380,7 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <p className="text-sm font-medium text-muted-foreground">Total RBT12</p>
-              <p className="text-lg font-bold">{formatCurrency(totals.rbt12)}</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="text-center p-4 bg-green-50 rounded-lg">
               <p className="text-sm font-medium text-green-700">Total Entradas</p>
               <p className="text-lg font-bold text-green-600">{formatCurrency(totals.entrada)}</p>
@@ -397,6 +394,70 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
               <p className="text-lg font-bold text-orange-600">{formatCurrency(totals.imposto)}</p>
             </div>
           </div>
+
+          {sortedAndFilteredData.length > 0 && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5" />
+                  Evolução das Entradas e Saídas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={sortedAndFilteredData.slice().reverse()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="period" 
+                        tick={{ fontSize: 12 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={70}
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => 
+                          new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          }).format(value)
+                        }
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => [
+                          new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL'
+                          }).format(value)
+                        ]}
+                        labelFormatter={(label) => `Período: ${label}`}
+                      />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="entrada" 
+                        stroke="#10b981" 
+                        strokeWidth={2}
+                        name="Entradas"
+                        dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="saida" 
+                        stroke="#ef4444" 
+                        strokeWidth={2}
+                        name="Saídas"
+                        dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-4 mb-4">
             <Input
