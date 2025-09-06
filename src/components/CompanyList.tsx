@@ -152,7 +152,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                 <TableHead>Entrada</TableHead>
                 <TableHead>Saída</TableHead>
                 <TableHead>Imposto</TableHead>
-                <TableHead>Data de Cadastro</TableHead>
+                <TableHead>Período Mais Recente</TableHead>
                 <TableHead className="w-20">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -208,7 +208,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                     }
                   </TableCell>
                   <TableCell>
-                    {new Date(company.created_at).toLocaleDateString('pt-BR')}
+                    {company.latest_fiscal_data?.period || 'N/A'}
                   </TableCell>
                   <TableCell>
                     <AlertDialog>

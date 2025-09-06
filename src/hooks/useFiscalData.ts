@@ -224,6 +224,125 @@ export const useAddCompany = () => {
   });
 };
 
+export const useAddFiscalData = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      company_id: string;
+      period: string;
+      rbt12: number;
+      entrada: number;
+      saida: number;
+      imposto: number;
+    }) => {
+      const { data: result, error } = await supabase
+        .from('fiscal_data')
+        .insert({
+          company_id: data.company_id,
+          period: data.period.trim(),
+          rbt12: data.rbt12 || 0,
+          entrada: data.entrada || 0,
+          saida: data.saida || 0,
+          imposto: data.imposto || 0,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company'] });
+      queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-stats'] });
+      
+      toast({
+        title: 'Dados fiscais adicionados',
+        description: 'Os dados fiscais foram cadastrados com sucesso.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro ao adicionar dados fiscais',
+        description: error instanceof Error ? error.message : 'Ocorreu um erro ao cadastrar os dados fiscais.',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+export const useImportCompanyExcel = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ companyId, data }: {
+      companyId: string;
+      data: Array<{
+        periodo: string;
+        rbt12: number | null;
+        entrada: number | null;
+        saida: number | null;
+        imposto: number | null;
+      }>
+    }) => {
+      // Filter out rows without essential data
+      const validRows = data.filter(row => 
+        row.periodo && row.periodo.trim()
+      );
+
+      if (validRows.length === 0) {
+        throw new Error('Nenhum registro válido encontrado. Verifique se a coluna Período está preenchida.');
+      }
+
+      // Prepare fiscal data
+      const fiscalDataRows = validRows.map(row => ({
+        company_id: companyId,
+        period: row.periodo.trim(),
+        rbt12: row.rbt12 || 0,
+        entrada: row.entrada || 0,
+        saida: row.saida || 0,
+        imposto: row.imposto || 0,
+      }));
+
+      // Insert fiscal data (using upsert to handle duplicates)
+      const { error: fiscalError } = await supabase
+        .from('fiscal_data')
+        .upsert(fiscalDataRows, { onConflict: 'company_id,period' });
+
+      if (fiscalError) throw fiscalError;
+
+      return { 
+        importedRecords: validRows.length,
+        skippedRecords: data.length - validRows.length
+      };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['company'] });
+      queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-stats'] });
+      
+      let description = `${result.importedRecords} registros importados com sucesso.`;
+      if (result.skippedRecords > 0) {
+        description += ` ${result.skippedRecords} registros foram ignorados por falta de dados essenciais.`;
+      }
+      
+      toast({
+        title: 'Importação concluída',
+        description,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro na importação',
+        description: error instanceof Error ? error.message : 'Ocorreu um erro ao importar os dados. Verifique o arquivo e tente novamente.',
+        variant: 'destructive',
+      });
+      console.error('Import error:', error);
+    },
+  });
+};
+
 export const useImportExcel = () => {
   const queryClient = useQueryClient();
 

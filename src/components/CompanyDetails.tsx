@@ -1,15 +1,26 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useCompanyWithData } from '@/hooks/useFiscalData';
-import { Download, ArrowUpDown, Building2, Calculator } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useCompanyWithData, useAddFiscalData, useImportCompanyExcel } from '@/hooks/useFiscalData';
+import { Download, ArrowUpDown, Building2, Calculator, Plus, Upload, FileDown } from 'lucide-react';
+import { useForm } from 'react-hook-form';
 import * as XLSX from 'xlsx';
 
 interface CompanyDetailsProps {
   companyId: string;
+}
+
+interface AddFiscalDataForm {
+  period: string;
+  rbt12: string;
+  entrada: string;
+  saida: string;
+  imposto: string;
 }
 
 export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
@@ -17,6 +28,14 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
   const [sortField, setSortField] = useState<'period' | 'entrada' | 'saida' | 'imposto'>('period');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filterPeriod, setFilterPeriod] = useState('');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const addFiscalDataMutation = useAddFiscalData();
+  const importExcelMutation = useImportCompanyExcel();
+  
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<AddFiscalDataForm>();
 
   const sortedAndFilteredData = useMemo(() => {
     if (!company?.fiscal_data) return [];
@@ -122,6 +141,83 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
     }).format(value);
   };
 
+  const handleAddFiscalData = (data: AddFiscalDataForm) => {
+    addFiscalDataMutation.mutate({
+      company_id: companyId,
+      period: data.period,
+      rbt12: parseFloat(data.rbt12) || 0,
+      entrada: parseFloat(data.entrada) || 0,
+      saida: parseFloat(data.saida) || 0,
+      imposto: parseFloat(data.imposto) || 0,
+    }, {
+      onSuccess: () => {
+        setIsAddDialogOpen(false);
+        reset();
+      }
+    });
+  };
+
+  const downloadTemplate = () => {
+    const template = [
+      {
+        'Período': 'Janeiro/2024',
+        'RBT12': 1000000,
+        'Entrada': 500000,
+        'Saída': 300000,
+        'Imposto': 50000,
+      },
+      {
+        'Período': 'Fevereiro/2024',
+        'RBT12': 1100000,
+        'Entrada': 550000,
+        'Saída': 320000,
+        'Imposto': 55000,
+      },
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(template);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+    
+    XLSX.writeFile(workbook, 'template_dados_fiscais.xlsx');
+  };
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        const mappedData = jsonData.map((row: any) => ({
+          periodo: row['Período'] || row['periodo'] || row['Period'] || '',
+          rbt12: parseFloat(row['RBT12'] || row['rbt12'] || '0') || null,
+          entrada: parseFloat(row['Entrada'] || row['entrada'] || row['Entry'] || '0') || null,
+          saida: parseFloat(row['Saída'] || row['saida'] || row['Exit'] || '0') || null,
+          imposto: parseFloat(row['Imposto'] || row['imposto'] || row['Tax'] || '0') || null,
+        }));
+
+        importExcelMutation.mutate({ companyId, data: mappedData });
+      } catch (error) {
+        console.error('Error reading file:', error);
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -159,11 +255,122 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
               <Building2 className="h-5 w-5" />
               {company.name}
             </div>
-            <Button onClick={exportToExcel} size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Exportar Excel
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={downloadTemplate} variant="outline" size="sm">
+                <FileDown className="h-4 w-4 mr-2" />
+                Baixar Template
+              </Button>
+              <Button 
+                onClick={() => fileInputRef.current?.click()} 
+                variant="outline" 
+                size="sm"
+                disabled={isImporting}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {isImporting ? 'Importando...' : 'Importar Excel'}
+              </Button>
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Dados
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Adicionar Dados Fiscais</DialogTitle>
+                    <DialogDescription>
+                      Preencha os dados fiscais para {company.name}.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit(handleAddFiscalData)} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="period">Período *</Label>
+                      <Input
+                        id="period"
+                        {...register('period', { required: 'Período é obrigatório' })}
+                        placeholder="Ex: Janeiro/2024"
+                      />
+                      {errors.period && (
+                        <p className="text-sm text-destructive">{errors.period.message}</p>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="rbt12">RBT12</Label>
+                        <Input
+                          id="rbt12"
+                          type="number"
+                          step="0.01"
+                          {...register('rbt12')}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="entrada">Entrada</Label>
+                        <Input
+                          id="entrada"
+                          type="number"
+                          step="0.01"
+                          {...register('entrada')}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="saida">Saída</Label>
+                        <Input
+                          id="saida"
+                          type="number"
+                          step="0.01"
+                          {...register('saida')}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="imposto">Imposto</Label>
+                        <Input
+                          id="imposto"
+                          type="number"
+                          step="0.01"
+                          {...register('imposto')}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setIsAddDialogOpen(false);
+                          reset();
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={addFiscalDataMutation.isPending}
+                      >
+                        {addFiscalDataMutation.isPending ? 'Adicionando...' : 'Adicionar'}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+              <Button onClick={exportToExcel} size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Exportar Excel
+              </Button>
+            </div>
           </CardTitle>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileImport}
+            style={{ display: 'none' }}
+          />
           <p className="text-sm text-muted-foreground">
             CNPJ: {company.cnpj 
               ? company.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
