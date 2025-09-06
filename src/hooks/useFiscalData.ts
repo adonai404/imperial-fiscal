@@ -146,6 +146,84 @@ export const useFiscalStats = () => {
   });
 };
 
+export const useDeleteCompany = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (companyId: string) => {
+      // First delete all fiscal data for this company
+      const { error: fiscalError } = await supabase
+        .from('fiscal_data')
+        .delete()
+        .eq('company_id', companyId);
+
+      if (fiscalError) throw fiscalError;
+
+      // Then delete the company
+      const { error: companyError } = await supabase
+        .from('companies')
+        .delete()
+        .eq('id', companyId);
+
+      if (companyError) throw companyError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-stats'] });
+      
+      toast({
+        title: 'Empresa excluída',
+        description: 'A empresa e todos os seus dados fiscais foram removidos com sucesso.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro ao excluir empresa',
+        description: error instanceof Error ? error.message : 'Ocorreu um erro ao excluir a empresa.',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+export const useAddCompany = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (companyData: { name: string; cnpj?: string }) => {
+      const { data, error } = await supabase
+        .from('companies')
+        .insert({
+          name: companyData.name.trim(),
+          cnpj: companyData.cnpj?.trim() || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-stats'] });
+      
+      toast({
+        title: 'Empresa adicionada',
+        description: 'A empresa foi cadastrada com sucesso.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro ao adicionar empresa',
+        description: error instanceof Error ? error.message : 'Ocorreu um erro ao cadastrar a empresa.',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
 export const useImportExcel = () => {
   const queryClient = useQueryClient();
 
