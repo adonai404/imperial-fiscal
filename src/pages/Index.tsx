@@ -6,69 +6,39 @@ import { ExcelUpload } from '@/components/ExcelUpload';
 import { CompanyList } from '@/components/CompanyList';
 import { CompanyDetails } from '@/components/CompanyDetails';
 import { Building2 } from 'lucide-react';
-
 const Index = () => {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>();
   const [activeSection, setActiveSection] = useState('dashboard');
-
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard':
         return <Dashboard />;
-      
       case 'import':
-        return (
-          <div>
+        return <div>
             <ExcelUpload />
-            <div className="mt-6 p-6 bg-muted/30 rounded-lg">
-              <h3 className="text-lg font-semibold mb-3">Instruções de Importação</h3>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p><strong>Formato esperado:</strong> Arquivo Excel (.xlsx ou .xls)</p>
-                <p><strong>Campo obrigatório:</strong> Apenas o nome da Empresa</p>
-                <p><strong>Campos opcionais:</strong> CNPJ, Período, RBT12, entrada, saída, imposto</p>
-                <p><strong>Flexibilidade:</strong> O sistema aceita planilhas com valores em branco ou incompletos</p>
-                <p><strong>Tratamento:</strong> Valores ausentes são armazenados como null, não impedindo a importação</p>
-              </div>
-            </div>
-          </div>
-        );
-      
+            
+          </div>;
       case 'companies':
-        return (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        return <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
-              <CompanyList
-                onSelectCompany={setSelectedCompanyId}
-                selectedCompanyId={selectedCompanyId}
-              />
+              <CompanyList onSelectCompany={setSelectedCompanyId} selectedCompanyId={selectedCompanyId} />
             </div>
             <div className="lg:col-span-2">
-              {selectedCompanyId ? (
-                <CompanyDetails companyId={selectedCompanyId} />
-              ) : (
-                <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center">
+              {selectedCompanyId ? <CompanyDetails companyId={selectedCompanyId} /> : <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center">
                   <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <p className="text-lg text-muted-foreground">
                     Selecione uma empresa para visualizar os detalhes
                   </p>
-                </div>
-              )}
+                </div>}
             </div>
-          </div>
-        );
-      
+          </div>;
       default:
         return <Dashboard />;
     }
   };
-
-  return (
-    <SidebarProvider>
+  return <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar 
-          activeSection={activeSection} 
-          onSectionChange={setActiveSection} 
-        />
+        <AppSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
         
         <SidebarInset className="flex-1">
           <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
@@ -92,8 +62,6 @@ const Index = () => {
           </main>
         </SidebarInset>
       </div>
-    </SidebarProvider>
-  );
+    </SidebarProvider>;
 };
-
 export default Index;
