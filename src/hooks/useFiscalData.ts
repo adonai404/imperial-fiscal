@@ -137,13 +137,35 @@ export const useImportExcel = () => {
         }
       }
 
-      // Insert companies (using upsert, but without onConflict since CNPJ can be null)
-      const { data: companies, error: companiesError } = await supabase
-        .from('companies')
-        .upsert(uniqueCompanies)
-        .select();
+      // Insert companies one by one to handle potential duplicates
+      const companies = [];
+      for (const company of uniqueCompanies) {
+        // First check if company already exists
+        const existingQuery = supabase
+          .from('companies')
+          .select('*');
 
-      if (companiesError) throw companiesError;
+        if (company.cnpj) {
+          existingQuery.eq('cnpj', company.cnpj);
+        } else {
+          existingQuery.eq('name', company.name).is('cnpj', null);
+        }
+
+        const { data: existing } = await existingQuery.maybeSingle();
+
+        if (existing) {
+          companies.push(existing);
+        } else {
+          const { data: newCompany, error: insertError } = await supabase
+            .from('companies')
+            .insert(company)
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          companies.push(newCompany);
+        }
+      }
 
       // Create a map of company key to company ID
       const companyKeyToIdMap = new Map();
