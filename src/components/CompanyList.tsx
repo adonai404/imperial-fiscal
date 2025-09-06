@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCompanies } from '@/hooks/useFiscalData';
 import { Search, Building2, FileText } from 'lucide-react';
 
 interface CompanyListProps {
   onSelectCompany: (companyId: string) => void;
-  selectedCompanyId?: string;
 }
 
-export const CompanyList = ({ onSelectCompany, selectedCompanyId }: CompanyListProps) => {
+export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const { data: companies, isLoading } = useCompanies();
 
@@ -54,31 +53,46 @@ export const CompanyList = ({ onSelectCompany, selectedCompanyId }: CompanyListP
         </div>
       </CardHeader>
       <CardContent>
-        <div className="max-h-96 overflow-y-auto space-y-2">
-          {filteredCompanies?.map((company) => (
-            <Button
-              key={company.id}
-              variant={selectedCompanyId === company.id ? "default" : "ghost"}
-              className="w-full justify-start h-auto p-4"
-              onClick={() => onSelectCompany(company.id)}
-            >
-              <div className="flex flex-col items-start w-full">
-                <div className="flex items-center gap-2 w-full">
-                  <Building2 className="h-4 w-4" />
-                  <span className="font-medium truncate">{company.name}</span>
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  CNPJ: {company.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
-                </span>
-              </div>
-            </Button>
-          ))}
-          {filteredCompanies?.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-4" />
-              <p>Nenhuma empresa encontrada</p>
-            </div>
-          )}
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome da Empresa</TableHead>
+                <TableHead>CNPJ</TableHead>
+                <TableHead>Data de Cadastro</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredCompanies?.map((company) => (
+                <TableRow 
+                  key={company.id}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => onSelectCompany(company.id)}
+                >
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      {company.name}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {company.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(company.created_at).toLocaleDateString('pt-BR')}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredCompanies?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-4" />
+                    <p>Nenhuma empresa encontrada</p>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
       </CardContent>
     </Card>

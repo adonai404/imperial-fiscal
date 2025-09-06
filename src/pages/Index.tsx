@@ -5,10 +5,21 @@ import { Dashboard } from '@/components/Dashboard';
 import { ExcelUpload } from '@/components/ExcelUpload';
 import { CompanyList } from '@/components/CompanyList';
 import { CompanyDetails } from '@/components/CompanyDetails';
-import { Building2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
+
 const Index = () => {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>();
   const [activeSection, setActiveSection] = useState('dashboard');
+  
+  const handleSelectCompany = (companyId: string) => {
+    setSelectedCompanyId(companyId);
+  };
+  
+  const handleBackToCompanies = () => {
+    setSelectedCompanyId(undefined);
+  };
+
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard':
@@ -16,22 +27,24 @@ const Index = () => {
       case 'import':
         return <div>
             <ExcelUpload />
-            
           </div>;
       case 'companies':
-        return <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1">
-              <CompanyList onSelectCompany={setSelectedCompanyId} selectedCompanyId={selectedCompanyId} />
+        if (selectedCompanyId) {
+          return (
+            <div className="space-y-4">
+              <Button 
+                variant="ghost" 
+                onClick={handleBackToCompanies}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Voltar para lista de empresas
+              </Button>
+              <CompanyDetails companyId={selectedCompanyId} />
             </div>
-            <div className="lg:col-span-2">
-              {selectedCompanyId ? <CompanyDetails companyId={selectedCompanyId} /> : <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center">
-                  <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-lg text-muted-foreground">
-                    Selecione uma empresa para visualizar os detalhes
-                  </p>
-                </div>}
-            </div>
-          </div>;
+          );
+        }
+        return <CompanyList onSelectCompany={handleSelectCompany} />;
       default:
         return <Dashboard />;
     }
@@ -47,12 +60,12 @@ const Index = () => {
               <h1 className="text-xl font-semibold">
                 {activeSection === 'dashboard' && 'Dashboard'}
                 {activeSection === 'import' && 'Importação de Dados'}
-                {activeSection === 'companies' && 'Gestão de Empresas'}
+                {activeSection === 'companies' && (selectedCompanyId ? 'Detalhes da Empresa' : 'Gestão de Empresas')}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {activeSection === 'dashboard' && 'Visualize estatísticas gerais do sistema'}
                 {activeSection === 'import' && 'Importe dados de planilhas Excel'}
-                {activeSection === 'companies' && 'Gerencie e visualize dados das empresas'}
+                {activeSection === 'companies' && (selectedCompanyId ? 'Visualize todos os dados fiscais da empresa' : 'Gerencie e visualize dados das empresas')}
               </p>
             </div>
           </header>
