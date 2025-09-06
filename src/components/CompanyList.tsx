@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useCompanies } from '@/hooks/useFiscalData';
+import { useCompaniesWithLatestFiscalData } from '@/hooks/useFiscalData';
 import { Search, Building2, FileText } from 'lucide-react';
 
 interface CompanyListProps {
@@ -11,7 +11,7 @@ interface CompanyListProps {
 
 export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const { data: companies, isLoading } = useCompanies();
+  const { data: companies, isLoading } = useCompaniesWithLatestFiscalData();
 
   const filteredCompanies = companies?.filter(company =>
     company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -59,6 +59,10 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
               <TableRow>
                 <TableHead>Nome da Empresa</TableHead>
                 <TableHead>CNPJ</TableHead>
+                <TableHead>RBT12</TableHead>
+                <TableHead>Entrada</TableHead>
+                <TableHead>Saída</TableHead>
+                <TableHead>Imposto</TableHead>
                 <TableHead>Data de Cadastro</TableHead>
               </TableRow>
             </TableHeader>
@@ -81,6 +85,38 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                       : 'N/A'
                     }
                   </TableCell>
+                  <TableCell className="text-right">
+                    {company.latest_fiscal_data?.rbt12 ? 
+                      company.latest_fiscal_data.rbt12.toLocaleString('pt-BR', { 
+                        style: 'currency', 
+                        currency: 'BRL' 
+                      }) : 'N/A'
+                    }
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {company.latest_fiscal_data?.entrada ? 
+                      company.latest_fiscal_data.entrada.toLocaleString('pt-BR', { 
+                        style: 'currency', 
+                        currency: 'BRL' 
+                      }) : 'N/A'
+                    }
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {company.latest_fiscal_data?.saida ? 
+                      company.latest_fiscal_data.saida.toLocaleString('pt-BR', { 
+                        style: 'currency', 
+                        currency: 'BRL' 
+                      }) : 'N/A'
+                    }
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {company.latest_fiscal_data?.imposto ? 
+                      company.latest_fiscal_data.imposto.toLocaleString('pt-BR', { 
+                        style: 'currency', 
+                        currency: 'BRL' 
+                      }) : 'N/A'
+                    }
+                  </TableCell>
                   <TableCell>
                     {new Date(company.created_at).toLocaleDateString('pt-BR')}
                   </TableCell>
@@ -88,7 +124,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
               ))}
               {filteredCompanies?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     <FileText className="h-12 w-12 mx-auto mb-4" />
                     <p>Nenhuma empresa encontrada</p>
                   </TableCell>

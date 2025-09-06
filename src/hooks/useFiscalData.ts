@@ -26,6 +26,16 @@ export interface CompanyWithData extends Company {
   fiscal_data: FiscalData[];
 }
 
+export interface CompanyWithLatestData extends Company {
+  latest_fiscal_data?: {
+    rbt12: number;
+    entrada: number;
+    saida: number;
+    imposto: number;
+    period: string;
+  };
+}
+
 export const useCompanies = () => {
   return useQuery({
     queryKey: ['companies'],
@@ -37,6 +47,48 @@ export const useCompanies = () => {
       
       if (error) throw error;
       return data as Company[];
+    },
+  });
+};
+
+export const useCompaniesWithLatestFiscalData = () => {
+  return useQuery({
+    queryKey: ['companies-with-latest-data'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('companies')
+        .select(`
+          *,
+          fiscal_data!inner(rbt12, entrada, saida, imposto, period, created_at)
+        `)
+        .order('name');
+      
+      if (error) throw error;
+      
+      // Process to get only the latest fiscal data for each company
+      const companiesWithLatestData: CompanyWithLatestData[] = data?.map(company => {
+        if (company.fiscal_data && company.fiscal_data.length > 0) {
+          // Sort by created_at descending to get the most recent
+          const sortedFiscalData = company.fiscal_data.sort((a: any, b: any) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          const latestData = sortedFiscalData[0];
+          
+          return {
+            ...company,
+            latest_fiscal_data: {
+              rbt12: latestData.rbt12 || 0,
+              entrada: latestData.entrada || 0,
+              saida: latestData.saida || 0,
+              imposto: latestData.imposto || 0,
+              period: latestData.period || 'N/A'
+            }
+          };
+        }
+        return company;
+      }) || [];
+      
+      return companiesWithLatestData;
     },
   });
 };
@@ -201,6 +253,7 @@ export const useImportExcel = () => {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
+      queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
       queryClient.invalidateQueries({ queryKey: ['fiscal-stats'] });
       
       let description = `${result.importedRecords} registros importados com sucesso.`;
