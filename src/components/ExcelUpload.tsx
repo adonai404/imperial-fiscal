@@ -32,11 +32,11 @@ export const ExcelUpload = () => {
           return isNaN(parsed) ? null : parsed;
         };
 
-        // Helper function to safely parse boolean
-        const parseBoolean = (value: any): boolean => {
+        // Helper function to parse company status
+        const parseSemMovimento = (value: any): boolean => {
           if (value === null || value === undefined || value === '') return false;
           const str = String(value).toLowerCase().trim();
-          return str === 'true' || str === '1' || str === 'sim' || str === 'yes' || str === 'verdadeiro';
+          return str === 'sem movimento' || str === 'inativa' || str === 'inativo' || str === 'parada' || str === 'sem movimentação';
         };
 
         return {
@@ -47,7 +47,7 @@ export const ExcelUpload = () => {
           entrada: parseNumber(row.entrada || row.Entrada),
           saida: parseNumber(row.saída || row.saida || row.Saída || row.Saida),
           imposto: parseNumber(row.imposto || row.Imposto),
-          sem_movimento: parseBoolean(row['Sem Movimento'] || row['sem_movimento'] || row['sem movimento'] || row['Sem movimento']),
+          sem_movimento: parseSemMovimento(row['situação'] || row['Situação'] || row['situacao'] || row['Situacao'] || row['status'] || row['Status']),
         };
       });
 
@@ -139,10 +139,10 @@ export const ExcelUpload = () => {
         <div className="mt-6 p-4 bg-muted/50 rounded-lg">
           <h4 className="font-semibold mb-2">Formato aceito:</h4>
           <div className="text-sm text-muted-foreground space-y-1">
-            <p><strong>Colunas:</strong> Empresa, CNPJ, Período, RBT12, entrada, saída, imposto, Sem Movimento</p>
+            <p><strong>Colunas:</strong> Empresa, CNPJ, Período, RBT12, entrada, saída, imposto, situação</p>
             <p><strong>Flexível:</strong> Valores em branco são aceitos e tratados como null</p>
             <p><strong>Obrigatório:</strong> Apenas o nome da Empresa é campo obrigatório</p>
-            <p><strong>Sem Movimento:</strong> Use "sim", "true", "1" ou "verdadeiro" para marcar empresas sem movimento</p>
+            <p><strong>Situação:</strong> Use "sem movimento", "inativa", "parada" ou "sem movimentação" para empresas sem movimento</p>
           </div>
         </div>
         </CardContent>
