@@ -34,9 +34,9 @@ export const ExcelUpload = () => {
 
         // Helper function to parse company status
         const parseSemMovimento = (value: any): boolean => {
-          if (value === null || value === undefined || value === '') return false;
+          if (value === null || value === undefined || value === '') return false; // Default: ativa
           const str = String(value).toLowerCase().trim();
-          return str === 'sem movimento' || str === 'inativa' || str === 'inativo' || str === 'parada' || str === 'sem movimentação';
+          return str === 'paralizada' || str === 'sem movimento' || str === 'paralisada';
         };
 
         return {
@@ -142,7 +142,7 @@ export const ExcelUpload = () => {
             <p><strong>Colunas:</strong> Empresa, CNPJ, Período, RBT12, entrada, saída, imposto, situação</p>
             <p><strong>Flexível:</strong> Valores em branco são aceitos e tratados como null</p>
             <p><strong>Obrigatório:</strong> Apenas o nome da Empresa é campo obrigatório</p>
-            <p><strong>Situação:</strong> Use "sem movimento", "inativa", "parada" ou "sem movimentação" para empresas sem movimento</p>
+            <p><strong>Situação:</strong> Use "Paralizada" ou "Sem movimento" para empresas sem movimento. "Ativa" ou vazio será considerado como empresa ativa</p>
           </div>
         </div>
         </CardContent>
