@@ -191,7 +191,7 @@ export const useFiscalStats = () => {
     queryKey: ['fiscal-stats'],
     queryFn: async () => {
       const [companiesResult, fiscalDataResult] = await Promise.all([
-        supabase.from('companies').select('id', { count: 'exact' }),
+        supabase.from('companies').select('id, sem_movimento', { count: 'exact' }),
         supabase.from('fiscal_data').select('entrada, saida, imposto'),
       ]);
 
@@ -200,6 +200,10 @@ export const useFiscalStats = () => {
 
       const totalCompanies = companiesResult.count || 0;
       const totalRecords = fiscalDataResult.data?.length || 0;
+      
+      // Calcular empresas ativas vs inativas
+      const empresasAtivas = companiesResult.data?.filter(company => !company.sem_movimento).length || 0;
+      const empresasInativas = companiesResult.data?.filter(company => company.sem_movimento).length || 0;
       
       const totals = fiscalDataResult.data?.reduce(
         (acc, curr) => ({
@@ -213,6 +217,8 @@ export const useFiscalStats = () => {
       return {
         totalCompanies,
         totalRecords,
+        empresasAtivas,
+        empresasInativas,
         ...totals,
       };
     },

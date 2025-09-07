@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFiscalStats } from '@/hooks/useFiscalData';
-import { Building2, FileText, TrendingUp, TrendingDown, Calculator, Activity, Upload } from 'lucide-react';
+import { Building2, FileText, TrendingUp, TrendingDown, Calculator, Activity, Upload, Users, AlertCircle } from 'lucide-react';
 export const Dashboard = () => {
   const {
     data: stats,
@@ -35,7 +35,8 @@ export const Dashboard = () => {
       currency: 'BRL'
     }).format(value);
   };
-  const saldoLiquido = (stats?.entrada || 0) - (stats?.saida || 0);
+  const empresasAtivas = stats?.empresasAtivas || 0;
+  const empresasInativas = stats?.empresasInativas || 0;
   return <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <Card>
@@ -110,7 +111,38 @@ export const Dashboard = () => {
         </Card>
       </div>
 
-      
+      {/* Segunda linha - Status das Empresas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Empresas Ativas</CardTitle>
+            <Users className="h-4 w-4 text-green-600 dark:text-green-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              {empresasAtivas}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              em funcionamento
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Empresas Inativas</CardTitle>
+            <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+              {empresasInativas}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              sem movimento
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
       {stats?.totalRecords === 0 && <Card className="border-dashed">
           <CardContent className="text-center py-8">
