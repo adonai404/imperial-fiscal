@@ -514,7 +514,20 @@ export const useImportExcel = () => {
         const { data: existing } = await existingQuery.maybeSingle();
 
         if (existing) {
-          companies.push(existing);
+          // Update existing company with new data (including situation)
+          const { data: updatedCompany, error: updateError } = await supabase
+            .from('companies')
+            .update({
+              name: company.name,
+              cnpj: company.cnpj,
+              sem_movimento: company.sem_movimento
+            })
+            .eq('id', existing.id)
+            .select()
+            .single();
+
+          if (updateError) throw updateError;
+          companies.push(updatedCompany);
         } else {
           const { data: newCompany, error: insertError } = await supabase
             .from('companies')

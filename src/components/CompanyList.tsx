@@ -6,9 +6,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCompaniesWithLatestFiscalData, useDeleteCompany, useAddCompany, useUpdateCompanyStatus } from '@/hooks/useFiscalData';
-import { Search, Building2, FileText, Plus, Trash2, Edit3 } from 'lucide-react';
+import { Search, Building2, FileText, Plus, Trash2, Edit3, CheckCircle, AlertCircle, PauseCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 
 interface CompanyListProps {
@@ -24,6 +23,8 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<{ id: string; name: string; currentStatus: boolean } | null>(null);
   const { data: companies, isLoading } = useCompaniesWithLatestFiscalData();
   const deleteCompanyMutation = useDeleteCompany();
   const addCompanyMutation = useAddCompany();
@@ -52,25 +53,43 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
     });
   };
 
-  const handleStatusChange = (companyId: string, newStatus: boolean) => {
+  const handleStatusClick = (company: any) => {
+    setSelectedCompany({
+      id: company.id,
+      name: company.name,
+      currentStatus: company.sem_movimento || false
+    });
+    setStatusModalOpen(true);
+  };
+
+  const handleStatusChange = (newStatus: 'ativa' | 'paralizada' | 'sem_movimento') => {
+    if (!selectedCompany) return;
+
+    const sem_movimento = newStatus === 'sem_movimento' || newStatus === 'paralizada';
+    
     updateStatusMutation.mutate({
-      companyId,
-      sem_movimento: newStatus
+      companyId: selectedCompany.id,
+      sem_movimento
     }, {
       onSuccess: () => {
-        setEditingStatus(null);
+        setStatusModalOpen(false);
+        setSelectedCompany(null);
       }
     });
   };
 
   const getStatusDisplay = (sem_movimento: boolean) => {
-    return sem_movimento ? 'Sem Movimento' : 'Ativa';
+    return sem_movimento ? 'SM' : 'Ativa';
   };
 
   const getStatusColor = (sem_movimento: boolean) => {
     return sem_movimento 
       ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20' 
       : 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20';
+  };
+
+  const getStatusIcon = (sem_movimento: boolean) => {
+    return sem_movimento ? PauseCircle : CheckCircle;
   };
 
   if (isLoading) {
@@ -91,7 +110,8 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
   }
 
   return (
-    <Card>
+    <div className="space-y-6">
+      <Card>
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -260,33 +280,20 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                     </span>
                   </TableCell>
                   <TableCell className="border-r border-border text-center w-24">
-                    {editingStatus === company.id ? (
-                      <Select
-                        value={company.sem_movimento ? 'sem_movimento' : 'ativa'}
-                        onValueChange={(value) => handleStatusChange(company.id, value === 'sem_movimento')}
-                        onOpenChange={(open) => !open && setEditingStatus(null)}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ativa">Ativa</SelectItem>
-                          <SelectItem value="sem_movimento">Sem Movimento</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <div
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${getStatusColor(company.sem_movimento || false)}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingStatus(company.id);
-                        }}
-                        title="Clique para alterar a situação"
-                      >
-                        <Edit3 className="h-3 w-3 mr-1" />
-                        {getStatusDisplay(company.sem_movimento || false)}
-                      </div>
-                    )}
+                    <div
+                      className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-all duration-200 hover:scale-105 ${getStatusColor(company.sem_movimento || false)}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStatusClick(company);
+                      }}
+                      title="Clique para alterar a situação (SM = Sem Movimento)"
+                    >
+                      {(() => {
+                        const IconComponent = getStatusIcon(company.sem_movimento || false);
+                        return <IconComponent className="h-3 w-3 mr-1.5" />;
+                      })()}
+                      {getStatusDisplay(company.sem_movimento || false)}
+                    </div>
                   </TableCell>
                   <TableCell className="text-center w-12">
                     <AlertDialog>
@@ -335,5 +342,93 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
         </div>
       </CardContent>
     </Card>
+
+    {/* Modal de Seleção de Situação */}
+    <Dialog open={statusModalOpen} onOpenChange={setStatusModalOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Edit3 className="h-5 w-5" />
+            Alterar Situação da Empresa
+          </DialogTitle>
+          <DialogDescription>
+            Selecione a nova situação para <strong>{selectedCompany?.name}</strong>
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-3 py-4">
+          {/* Opção Ativa */}
+          <div
+            className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
+              selectedCompany?.currentStatus === false
+                ? 'border-green-500 bg-green-50 dark:bg-green-950/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-green-300'
+            }`}
+            onClick={() => handleStatusChange('ativa')}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-full ${selectedCompany?.currentStatus === false ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                <CheckCircle className={`h-5 w-5 ${selectedCompany?.currentStatus === false ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`} />
+              </div>
+              <div>
+                <h4 className="font-medium text-green-700 dark:text-green-300">Ativa</h4>
+                <p className="text-sm text-green-600 dark:text-green-400">Empresa em funcionamento normal</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Opção Paralisada */}
+          <div
+            className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
+              selectedCompany?.currentStatus === true
+                ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-orange-300'
+            }`}
+            onClick={() => handleStatusChange('paralizada')}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-full ${selectedCompany?.currentStatus === true ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                <AlertCircle className={`h-5 w-5 ${selectedCompany?.currentStatus === true ? 'text-orange-600 dark:text-orange-400' : 'text-gray-400'}`} />
+              </div>
+              <div>
+                <h4 className="font-medium text-orange-700 dark:text-orange-300">Paralisada</h4>
+                <p className="text-sm text-orange-600 dark:text-orange-400">Empresa temporariamente paralisada</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Opção Sem Movimento */}
+          <div
+            className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
+              selectedCompany?.currentStatus === true
+                ? 'border-red-500 bg-red-50 dark:bg-red-950/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-red-300'
+            }`}
+            onClick={() => handleStatusChange('sem_movimento')}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-full ${selectedCompany?.currentStatus === true ? 'bg-red-100 dark:bg-red-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                <PauseCircle className={`h-5 w-5 ${selectedCompany?.currentStatus === true ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`} />
+              </div>
+              <div>
+                <h4 className="font-medium text-red-700 dark:text-red-300">Sem Movimento</h4>
+                <p className="text-sm text-red-600 dark:text-red-400">Empresa sem atividade fiscal</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setStatusModalOpen(false)}
+            disabled={updateStatusMutation.isPending}
+          >
+            Cancelar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </div>
   );
 };
