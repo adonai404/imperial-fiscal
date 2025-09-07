@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useCompaniesWithLatestFiscalData, useDeleteCompany, useAddCompany } from '@/hooks/useFiscalData';
 import { Search, Building2, FileText, Plus, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -17,6 +18,7 @@ interface CompanyListProps {
 interface AddCompanyForm {
   name: string;
   cnpj: string;
+  sem_movimento: boolean;
 }
 
 export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
@@ -41,6 +43,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
     addCompanyMutation.mutate({
       name: data.name,
       cnpj: data.cnpj || undefined,
+      sem_movimento: data.sem_movimento,
     }, {
       onSuccess: () => {
         setIsAddDialogOpen(false);
@@ -109,6 +112,15 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                     maxLength={18}
                   />
                 </div>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="sem_movimento"
+                      {...register('sem_movimento')}
+                    />
+                    <Label htmlFor="sem_movimento">Empresa sem movimento</Label>
+                  </div>
+                </div>
                 <DialogFooter>
                   <Button
                     type="button"
@@ -148,6 +160,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
               <TableRow className="border-b border-border bg-muted/50 backdrop-blur-sm">
                 <TableHead className="border-r border-border font-semibold text-foreground w-8 text-center">#</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground min-w-0 flex-1">Nome da Empresa</TableHead>
+                <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden sm:table-cell">Status</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-24 hidden sm:table-cell">CNPJ</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden md:table-cell">RBT12</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden lg:table-cell">Entrada</TableHead>
@@ -172,6 +185,17 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                       <Building2 className="h-4 w-4 text-primary flex-shrink-0" />
                       <span className="truncate">{company.name}</span>
                     </div>
+                  </TableCell>
+                  <TableCell className="border-r border-border text-center w-20 hidden sm:table-cell">
+                    {company.sem_movimento ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200">
+                        Sem Movimento
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200">
+                        Ativa
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="border-r border-border text-foreground w-24 hidden sm:table-cell">
                     <span className="truncate block text-xs">
@@ -270,7 +294,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
               ))}
               {filteredCompanies?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground border-b border-border">
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground border-b border-border">
                     <FileText className="h-12 w-12 mx-auto mb-4" />
                     <p>Nenhuma empresa encontrada</p>
                   </TableCell>

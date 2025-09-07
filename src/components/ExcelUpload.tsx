@@ -32,6 +32,13 @@ export const ExcelUpload = () => {
           return isNaN(parsed) ? null : parsed;
         };
 
+        // Helper function to safely parse boolean
+        const parseBoolean = (value: any): boolean => {
+          if (value === null || value === undefined || value === '') return false;
+          const str = String(value).toLowerCase().trim();
+          return str === 'true' || str === '1' || str === 'sim' || str === 'yes' || str === 'verdadeiro';
+        };
+
         return {
           empresa: String(row.Empresa || row.empresa || '').trim(),
           cnpj: String(row.CNPJ || row.cnpj || '').replace(/\D/g, ''),
@@ -40,6 +47,7 @@ export const ExcelUpload = () => {
           entrada: parseNumber(row.entrada || row.Entrada),
           saida: parseNumber(row.saída || row.saida || row.Saída || row.Saida),
           imposto: parseNumber(row.imposto || row.Imposto),
+          sem_movimento: parseBoolean(row['Sem Movimento'] || row['sem_movimento'] || row['sem movimento'] || row['Sem movimento']),
         };
       });
 
@@ -131,9 +139,10 @@ export const ExcelUpload = () => {
         <div className="mt-6 p-4 bg-muted/50 rounded-lg">
           <h4 className="font-semibold mb-2">Formato aceito:</h4>
           <div className="text-sm text-muted-foreground space-y-1">
-            <p><strong>Colunas:</strong> Empresa, CNPJ, Período, RBT12, entrada, saída, imposto</p>
+            <p><strong>Colunas:</strong> Empresa, CNPJ, Período, RBT12, entrada, saída, imposto, Sem Movimento</p>
             <p><strong>Flexível:</strong> Valores em branco são aceitos e tratados como null</p>
             <p><strong>Obrigatório:</strong> Apenas o nome da Empresa é campo obrigatório</p>
+            <p><strong>Sem Movimento:</strong> Use "sim", "true", "1" ou "verdadeiro" para marcar empresas sem movimento</p>
           </div>
         </div>
         </CardContent>

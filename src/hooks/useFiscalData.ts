@@ -76,6 +76,7 @@ export interface Company {
   id: string;
   name: string;
   cnpj: string;
+  sem_movimento?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -263,12 +264,13 @@ export const useAddCompany = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (companyData: { name: string; cnpj?: string }) => {
+    mutationFn: async (companyData: { name: string; cnpj?: string; sem_movimento?: boolean }) => {
       const { data, error } = await supabase
         .from('companies')
         .insert({
           name: companyData.name.trim(),
           cnpj: companyData.cnpj?.trim() || null,
+          sem_movimento: companyData.sem_movimento || false,
         })
         .select()
         .single();
@@ -427,6 +429,7 @@ export const useImportExcel = () => {
       entrada: number | null;
       saida: number | null;
       imposto: number | null;
+      sem_movimento?: boolean;
     }>) => {
       // Filter out rows without essential data (only empresa is required now)
       const validRows = data.filter(row => 
@@ -449,11 +452,13 @@ export const useImportExcel = () => {
           companiesMap.set(companyKey, {
             name: row.empresa.trim(),
             cnpj: row.cnpj && row.cnpj.trim() ? row.cnpj.trim() : null,
+            sem_movimento: row.sem_movimento || false,
             id: null // Will be filled after insert
           });
           uniqueCompanies.push({
             name: row.empresa.trim(),
             cnpj: row.cnpj && row.cnpj.trim() ? row.cnpj.trim() : null,
+            sem_movimento: row.sem_movimento || false,
           });
         }
       }
