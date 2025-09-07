@@ -88,14 +88,15 @@ export const ExcelUpload = () => {
   };
 
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileSpreadsheet className="h-5 w-5" />
-          Importar Dados do Excel
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <FileSpreadsheet className="h-6 w-6" />
+            Importar Dados do Excel
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
         <div
           className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
             isDragging
@@ -127,13 +128,16 @@ export const ExcelUpload = () => {
             className="hidden"
           />
         </div>
-        <div className="mt-4 text-sm text-muted-foreground">
-          <p><strong>Formato aceito:</strong></p>
-          <p>Colunas: Empresa, CNPJ, Período, RBT12, entrada, saída, imposto</p>
-          <p><strong>Flexível:</strong> Valores em branco são aceitos e tratados como null</p>
-          <p><strong>Obrigatório:</strong> Apenas o nome da Empresa é campo obrigatório</p>
+        <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+          <h4 className="font-semibold mb-2">Formato aceito:</h4>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p><strong>Colunas:</strong> Empresa, CNPJ, Período, RBT12, entrada, saída, imposto</p>
+            <p><strong>Flexível:</strong> Valores em branco são aceitos e tratados como null</p>
+            <p><strong>Obrigatório:</strong> Apenas o nome da Empresa é campo obrigatório</p>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 };

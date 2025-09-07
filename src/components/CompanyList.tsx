@@ -68,15 +68,15 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+      <CardHeader className="pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Building2 className="h-5 w-5" />
             Empresas ({companies?.length || 0})
           </CardTitle>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button size="sm" className="w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar Empresa
               </Button>
@@ -131,7 +131,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
             </DialogContent>
           </Dialog>
         </div>
-        <div className="relative">
+        <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             placeholder="Buscar por empresa ou CNPJ..."
@@ -141,84 +141,109 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
           />
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="rounded-md border">
+      <CardContent className="p-0">
+        <div className="border border-border overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Nome da Empresa</TableHead>
-                <TableHead>CNPJ</TableHead>
-                <TableHead>RBT12</TableHead>
-                <TableHead>Entrada</TableHead>
-                <TableHead>Saída</TableHead>
-                <TableHead>Imposto</TableHead>
-                <TableHead>Período Mais Recente</TableHead>
-                <TableHead className="w-20">Ações</TableHead>
+              <TableRow className="border-b border-border bg-muted/50 backdrop-blur-sm">
+                <TableHead className="border-r border-border font-semibold text-foreground w-8 text-center">#</TableHead>
+                <TableHead className="border-r border-border font-semibold text-foreground min-w-0 flex-1">Nome da Empresa</TableHead>
+                <TableHead className="border-r border-border font-semibold text-foreground w-24 hidden sm:table-cell">CNPJ</TableHead>
+                <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden md:table-cell">RBT12</TableHead>
+                <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden lg:table-cell">Entrada</TableHead>
+                <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden lg:table-cell">Saída</TableHead>
+                <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden xl:table-cell">Imposto</TableHead>
+                <TableHead className="border-r border-border font-semibold text-foreground w-24 hidden xl:table-cell">Período</TableHead>
+                <TableHead className="w-12 font-semibold text-foreground">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCompanies?.map((company) => (
+              {filteredCompanies?.map((company, index) => (
                 <TableRow 
                   key={company.id}
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="cursor-pointer hover:bg-accent transition-colors border-b border-border bg-muted/30"
                   onClick={() => onSelectCompany(company.id)}
                 >
-                  <TableCell className="font-medium">
+                  <TableCell className="border-r border-border text-center text-muted-foreground font-mono text-sm w-8">
+                    {index + 1}
+                  </TableCell>
+                  <TableCell className="border-r border-border font-medium text-foreground min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4" />
-                      {company.name}
+                      <Building2 className="h-4 w-4 text-primary flex-shrink-0" />
+                      <span className="truncate">{company.name}</span>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    {company.cnpj 
-                      ? company.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-                      : 'N/A'
-                    }
+                  <TableCell className="border-r border-border text-foreground w-24 hidden sm:table-cell">
+                    <span className="truncate block text-xs">
+                      {company.cnpj 
+                        ? company.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+                        : 'N/A'
+                      }
+                    </span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    {company.latest_fiscal_data?.rbt12 ? 
-                      company.latest_fiscal_data.rbt12.toLocaleString('pt-BR', { 
-                        style: 'currency', 
-                        currency: 'BRL' 
-                      }) : 'N/A'
-                    }
+                  <TableCell className="border-r border-border text-right text-foreground w-20 hidden md:table-cell">
+                    <span className="truncate block text-xs">
+                      {company.latest_fiscal_data?.rbt12 ? 
+                        company.latest_fiscal_data.rbt12.toLocaleString('pt-BR', { 
+                          style: 'currency', 
+                          currency: 'BRL',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        }) : 'N/A'
+                      }
+                    </span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    {company.latest_fiscal_data?.entrada ? 
-                      company.latest_fiscal_data.entrada.toLocaleString('pt-BR', { 
-                        style: 'currency', 
-                        currency: 'BRL' 
-                      }) : 'N/A'
-                    }
+                  <TableCell className="border-r border-border text-right text-green-600 dark:text-green-400 font-medium w-20 hidden lg:table-cell">
+                    <span className="truncate block text-xs">
+                      {company.latest_fiscal_data?.entrada ? 
+                        company.latest_fiscal_data.entrada.toLocaleString('pt-BR', { 
+                          style: 'currency', 
+                          currency: 'BRL',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        }) : 'N/A'
+                      }
+                    </span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    {company.latest_fiscal_data?.saida ? 
-                      company.latest_fiscal_data.saida.toLocaleString('pt-BR', { 
-                        style: 'currency', 
-                        currency: 'BRL' 
-                      }) : 'N/A'
-                    }
+                  <TableCell className="border-r border-border text-right text-red-600 dark:text-red-400 font-medium w-20 hidden lg:table-cell">
+                    <span className="truncate block text-xs">
+                      {company.latest_fiscal_data?.saida ? 
+                        company.latest_fiscal_data.saida.toLocaleString('pt-BR', { 
+                          style: 'currency', 
+                          currency: 'BRL',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        }) : 'N/A'
+                      }
+                    </span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    {company.latest_fiscal_data?.imposto ? 
-                      company.latest_fiscal_data.imposto.toLocaleString('pt-BR', { 
-                        style: 'currency', 
-                        currency: 'BRL' 
-                      }) : 'N/A'
-                    }
+                  <TableCell className="border-r border-border text-right text-orange-600 dark:text-orange-400 font-medium w-20 hidden xl:table-cell">
+                    <span className="truncate block text-xs">
+                      {company.latest_fiscal_data?.imposto ? 
+                        company.latest_fiscal_data.imposto.toLocaleString('pt-BR', { 
+                          style: 'currency', 
+                          currency: 'BRL',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        }) : 'N/A'
+                      }
+                    </span>
                   </TableCell>
-                  <TableCell>
-                    {company.latest_fiscal_data?.period || 'N/A'}
+                  <TableCell className="border-r border-border text-foreground w-24 hidden xl:table-cell">
+                    <span className="truncate block text-xs">
+                      {company.latest_fiscal_data?.period || 'N/A'}
+                    </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-center w-12">
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-destructive hover:text-destructive"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -245,7 +270,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
               ))}
               {filteredCompanies?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground border-b border-border">
                     <FileText className="h-12 w-12 mx-auto mb-4" />
                     <p>Nenhuma empresa encontrada</p>
                   </TableCell>

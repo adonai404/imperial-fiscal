@@ -25,9 +25,7 @@ const Index = () => {
       case 'dashboard':
         return <Dashboard />;
       case 'import':
-        return <div>
-            <ExcelUpload />
-          </div>;
+        return <ExcelUpload />;
       case 'companies':
         if (selectedCompanyId) {
           return (
@@ -54,10 +52,10 @@ const Index = () => {
         <AppSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
         
         <SidebarInset className="flex-1">
-          <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
+          <header className="sticky top-0 z-40 flex h-20 shrink-0 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
             <SidebarTrigger className="-ml-1" />
-            <div className="flex-1">
-              <h1 className="text-xl font-semibold">
+            <div className="flex-1 space-y-1">
+              <h1 className="text-2xl font-bold tracking-tight">
                 {activeSection === 'dashboard' && 'Dashboard'}
                 {activeSection === 'import' && 'Importação de Dados'}
                 {activeSection === 'companies' && (selectedCompanyId ? 'Detalhes da Empresa' : 'Gestão de Empresas')}

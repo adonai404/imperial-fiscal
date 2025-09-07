@@ -8,7 +8,7 @@ export const Dashboard = () => {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {[...Array(5)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader className="pb-2">
@@ -46,7 +46,7 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Empresas</CardTitle>
@@ -76,10 +76,10 @@ export const Dashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Entradas</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
+            <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
               {formatCurrency(stats?.entrada || 0)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -91,10 +91,10 @@ export const Dashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Saídas</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-600" />
+            <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
               {formatCurrency(stats?.saida || 0)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -106,10 +106,10 @@ export const Dashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Impostos</CardTitle>
-            <Calculator className="h-4 w-4 text-orange-600" />
+            <Calculator className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
               {formatCurrency(stats?.imposto || 0)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -125,7 +125,7 @@ export const Dashboard = () => {
             <CardTitle className="text-lg">Saldo Líquido</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-3xl font-bold ${saldoLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-3xl font-bold ${saldoLiquido >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
               {formatCurrency(saldoLiquido)}
             </div>
             <p className="text-sm text-muted-foreground mt-2">
@@ -141,7 +141,7 @@ export const Dashboard = () => {
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium">Status:</span>
-              <span className="text-sm text-green-600 font-medium">Ativo</span>
+              <span className="text-sm text-green-600 dark:text-green-400 font-medium">Ativo</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium">Última importação:</span>
