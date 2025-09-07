@@ -417,6 +417,40 @@ export const useImportCompanyExcel = () => {
   });
 };
 
+export const useUpdateCompanyStatus = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ companyId, sem_movimento }: { companyId: string; sem_movimento: boolean }) => {
+      const { data, error } = await supabase
+        .from('companies')
+        .update({ sem_movimento })
+        .eq('id', companyId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
+      
+      toast({
+        title: 'Situação atualizada',
+        description: 'A situação da empresa foi atualizada com sucesso.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro ao atualizar situação',
+        description: error instanceof Error ? error.message : 'Ocorreu um erro ao atualizar a situação da empresa.',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
 export const useImportExcel = () => {
   const queryClient = useQueryClient();
 

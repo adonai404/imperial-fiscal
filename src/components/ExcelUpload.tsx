@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Upload, FileSpreadsheet } from 'lucide-react';
+import { Upload, FileSpreadsheet, ExternalLink, Download } from 'lucide-react';
 import { useImportExcel } from '@/hooks/useFiscalData';
 import * as XLSX from 'xlsx';
 
@@ -95,6 +95,10 @@ export const ExcelUpload = () => {
     }
   };
 
+  const handleExtractionToolClick = () => {
+    window.open('https://extracao.streamlit.app/', '_blank');
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -145,6 +149,41 @@ export const ExcelUpload = () => {
             <p><strong>Situação:</strong> Use "Paralizada" ou "Sem movimento" para empresas sem movimento. "Ativa" ou vazio será considerado como empresa ativa</p>
           </div>
         </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <Download className="h-6 w-6" />
+            Extrair Dados de Documentos
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Use nossa ferramenta de extração para processar documentos fiscais e gerar planilhas automaticamente.
+            </p>
+            <div className="flex justify-start">
+              <Button 
+                onClick={handleExtractionToolClick}
+                className="flex items-center gap-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Abrir Ferramenta de Extração
+              </Button>
+            </div>
+            <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <h4 className="font-semibold mb-2 text-blue-900 dark:text-blue-100">Como usar:</h4>
+              <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-decimal list-inside">
+                <li>Clique no botão acima para abrir a ferramenta</li>
+                <li>Faça upload dos seus documentos fiscais</li>
+                <li>A ferramenta extrairá os dados automaticamente</li>
+                <li>Baixe a planilha gerada</li>
+                <li>Volte aqui e importe a planilha usando o formulário acima</li>
+              </ol>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
