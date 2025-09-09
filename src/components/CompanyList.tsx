@@ -30,7 +30,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<{ id: string; name: string; cnpj: string } | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('todas');
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<{ id: string; name: string; currentStatus: boolean } | null>(null);
@@ -47,7 +47,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
     const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (company.cnpj && company.cnpj.includes(searchTerm));
     
-    const matchesStatus = statusFilter === '' || 
+    const matchesStatus = statusFilter === 'todas' || 
       (statusFilter === 'ativa' && !company.sem_movimento) ||
       (statusFilter === 'sem_movimento' && company.sem_movimento);
     
@@ -234,7 +234,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                 <SelectValue placeholder="Filtrar por situação" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas as situações</SelectItem>
+                <SelectItem value="todas">Todas as situações</SelectItem>
                 <SelectItem value="ativa">Ativas</SelectItem>
                 <SelectItem value="sem_movimento">Sem Movimento</SelectItem>
               </SelectContent>
