@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFiscalStats } from '@/hooks/useFiscalData';
-import { Building2, FileText, TrendingUp, TrendingDown, Calculator, Activity, Upload, Users, AlertCircle } from 'lucide-react';
+import { Building2, FileText, TrendingUp, TrendingDown, Calculator, Activity, Upload, Users, AlertCircle, PauseCircle, CheckCircle } from 'lucide-react';
 export const Dashboard = () => {
   const {
     data: stats,
@@ -36,7 +36,8 @@ export const Dashboard = () => {
     }).format(value);
   };
   const empresasAtivas = stats?.empresasAtivas || 0;
-  const empresasInativas = stats?.empresasInativas || 0;
+  const empresasParalisadas = stats?.empresasParalisadas || 0;
+  const empresasSemMovimento = stats?.empresasSemMovimento || 0;
   return <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <Card>
@@ -112,11 +113,11 @@ export const Dashboard = () => {
       </div>
 
       {/* Segunda linha - Status das Empresas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Empresas Ativas</CardTitle>
-            <Users className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -130,15 +131,30 @@ export const Dashboard = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Empresas Inativas</CardTitle>
-            <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            <CardTitle className="text-sm font-medium">Empresas Paralisadas</CardTitle>
+            <PauseCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {empresasInativas}
+              {empresasParalisadas}
             </div>
             <p className="text-xs text-muted-foreground">
-              sem movimento
+              temporariamente paralisadas
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Sem Movimento</CardTitle>
+            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+              {empresasSemMovimento}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              sem atividade fiscal
             </p>
           </CardContent>
         </Card>

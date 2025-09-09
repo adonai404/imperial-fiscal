@@ -201,9 +201,10 @@ export const useFiscalStats = () => {
       const totalCompanies = companiesResult.count || 0;
       const totalRecords = fiscalDataResult.data?.length || 0;
       
-      // Calcular empresas ativas vs inativas
+      // Calcular empresas por status
       const empresasAtivas = companiesResult.data?.filter(company => !company.sem_movimento).length || 0;
-      const empresasInativas = companiesResult.data?.filter(company => company.sem_movimento).length || 0;
+      const empresasParalisadas = 0; // Por enquanto, todas as empresas com sem_movimento são consideradas "sem movimento"
+      const empresasSemMovimento = companiesResult.data?.filter(company => company.sem_movimento).length || 0;
       
       const totals = fiscalDataResult.data?.reduce(
         (acc, curr) => ({
@@ -218,7 +219,8 @@ export const useFiscalStats = () => {
         totalCompanies,
         totalRecords,
         empresasAtivas,
-        empresasInativas,
+        empresasParalisadas,
+        empresasSemMovimento,
         ...totals,
       };
     },
@@ -575,6 +577,103 @@ export const useDeleteFiscalData = () => {
   });
 };
 
+export const useFiscalEvolutionData = () => {
+  return useQuery({
+    queryKey: ['fiscal-evolution-data'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fiscal_data')
+        .select(`
+          period,
+          entrada,
+          saida,
+          imposto,
+          companies!inner(name)
+        `)
+        .order('period');
+      
+      if (error) throw error;
+      
+      // Agrupar dados por período e calcular totais
+      const periodTotals = new Map();
+      
+      data?.forEach(item => {
+        const period = item.period;
+        if (!periodTotals.has(period)) {
+          periodTotals.set(period, {
+            period,
+            entrada: 0,
+            saida: 0,
+            imposto: 0,
+            companies: new Set()
+          });
+        }
+        
+        const periodData = periodTotals.get(period);
+        periodData.entrada += item.entrada || 0;
+        periodData.saida += item.saida || 0;
+        periodData.imposto += item.imposto || 0;
+        periodData.companies.add(item.companies.name);
+      });
+      
+      // Converter para array e ordenar por período
+      const evolutionData = Array.from(periodTotals.values())
+        .map(item => ({
+          period: item.period,
+          entrada: item.entrada,
+          saida: item.saida,
+          imposto: item.imposto,
+          companiesCount: item.companies.size
+        }))
+        .sort((a, b) => {
+          const dateA = parsePeriodToDate(a.period);
+          const dateB = parsePeriodToDate(b.period);
+          return dateA.getTime() - dateB.getTime();
+        });
+      
+      return evolutionData;
+    },
+  });
+};
+
+export const useCompanyFiscalEvolutionData = (companyId: string) => {
+  return useQuery({
+    queryKey: ['company-fiscal-evolution', companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fiscal_data')
+        .select(`
+          period,
+          entrada,
+          saida,
+          imposto,
+          rbt12
+        `)
+        .eq('company_id', companyId)
+        .order('period');
+      
+      if (error) throw error;
+      
+      // Ordenar dados por período
+      const evolutionData = data?.map(item => ({
+        period: item.period,
+        entrada: item.entrada || 0,
+        saida: item.saida || 0,
+        imposto: item.imposto || 0,
+        rbt12: item.rbt12 || 0,
+        saldo: (item.entrada || 0) - (item.saida || 0)
+      })).sort((a, b) => {
+        const dateA = parsePeriodToDate(a.period);
+        const dateB = parsePeriodToDate(b.period);
+        return dateA.getTime() - dateB.getTime();
+      }) || [];
+      
+      return evolutionData;
+    },
+    enabled: !!companyId,
+  });
+};
+
 export const useImportExcel = () => {
   const queryClient = useQueryClient();
 
@@ -700,6 +799,7 @@ export const useImportExcel = () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
       queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
       queryClient.invalidateQueries({ queryKey: ['fiscal-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-evolution-data'] });
       
       let description = `${result.importedRecords} registros importados com sucesso.`;
       if (result.skippedRecords > 0) {

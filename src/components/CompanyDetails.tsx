@@ -12,6 +12,7 @@ import { Download, ArrowUpDown, Building2, Calculator, Plus, Upload, FileDown, X
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useForm } from 'react-hook-form';
 import * as XLSX from 'xlsx';
+import { CompanyFiscalEvolutionChart } from './CompanyFiscalEvolutionChart';
 
 // Helper function to parse fiscal period to Date for comparison
 const parsePeriodToDate = (period: string): Date => {
@@ -392,6 +393,12 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
 
   return (
     <div className="space-y-4">
+      {/* Gráfico de Evolução Fiscal da Empresa */}
+      <CompanyFiscalEvolutionChart 
+        companyId={companyId} 
+        companyName={company.name} 
+      />
+      
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
