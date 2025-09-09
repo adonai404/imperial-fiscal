@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useCompanyWithData, useAddFiscalData, useImportCompanyExcel, useUpdateFiscalData, useDeleteFiscalData } from '@/hooks/useFiscalData';
-import { Download, ArrowUpDown, Building2, Calculator, Plus, Upload, FileDown, X, Edit3, Trash2 } from 'lucide-react';
+import { Download, ArrowUpDown, Building2, Calculator, Plus, Upload, FileDown, X, Edit3, Trash2, FileSpreadsheet } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useForm } from 'react-hook-form';
 import * as XLSX from 'xlsx';
@@ -101,6 +101,8 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingFiscalData, setEditingFiscalData] = useState<any>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const addFiscalDataMutation = useAddFiscalData();
@@ -253,6 +255,113 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
     deleteFiscalDataMutation.mutate(fiscalDataId);
   };
 
+  const downloadTemplate = () => {
+    const templateData = [
+      {
+        'Período': 'Janeiro/2024',
+        'RBT12': 100000,
+        'Entrada': 50000,
+        'Saída': 30000,
+        'Imposto': 5000
+      },
+      {
+        'Período': 'Fevereiro/2024',
+        'RBT12': 120000,
+        'Entrada': 60000,
+        'Saída': 35000,
+        'Imposto': 6000
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Dados Fiscais');
+    
+    const fileName = `template_dados_fiscais_${company?.name?.replace(/\s+/g, '_') || 'empresa'}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
+  const handleFileSelect = async (file: File) => {
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      alert('Por favor, selecione um arquivo Excel (.xlsx ou .xls)');
+      return;
+    }
+
+    try {
+      setIsImporting(true);
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      // Transform data to match expected structure
+      const processedData = jsonData.map((row: any) => {
+        const parseNumber = (value: any): number | null => {
+          if (value === null || value === undefined || value === '') return null;
+          const parsed = parseFloat(String(value).replace(/[^\d.,-]/g, '').replace(',', '.'));
+          return isNaN(parsed) ? null : parsed;
+        };
+
+        return {
+          periodo: String(row.Período || row.periodo || row.Periodo || '').trim(),
+          rbt12: parseNumber(row.RBT12 || row.rbt12),
+          entrada: parseNumber(row.Entrada || row.entrada),
+          saida: parseNumber(row.Saída || row.saida || row.Saida),
+          imposto: parseNumber(row.Imposto || row.imposto),
+        };
+      });
+
+      // Filter out rows without essential data
+      const validRows = processedData.filter(row => 
+        row.periodo && row.periodo.trim()
+      );
+
+      if (validRows.length === 0) {
+        alert('Nenhum registro válido encontrado. Verifique se a coluna Período está preenchida.');
+        return;
+      }
+
+      await importExcelMutation.mutateAsync({
+        companyId,
+        data: validRows
+      });
+
+      setIsImportDialogOpen(false);
+    } catch (error) {
+      console.error('Error processing file:', error);
+      alert('Erro ao processar o arquivo. Verifique se é um arquivo Excel válido.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -291,6 +400,82 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
               {company.name}
             </div>
             <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={downloadTemplate}
+                title="Baixar template XLSX"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Baixar Template
+              </Button>
+              
+              <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Importar Planilha
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Importar Dados Fiscais</DialogTitle>
+                    <DialogDescription>
+                      Importe dados fiscais para {company.name} a partir de uma planilha Excel.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                      isDragging
+                        ? 'border-primary bg-primary/5'
+                        : 'border-muted-foreground/25 hover:border-primary/50'
+                    }`}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                  >
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm font-medium mb-1">
+                      Arraste e solte seu arquivo Excel aqui
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      ou clique para selecionar um arquivo (.xlsx, .xls)
+                    </p>
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isImporting}
+                      size="sm"
+                    >
+                      {isImporting ? 'Importando...' : 'Selecionar Arquivo'}
+                    </Button>
+                    <Input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleInputChange}
+                      className="hidden"
+                    />
+                  </div>
+                  <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                    <h4 className="font-semibold mb-2 text-sm">Formato aceito:</h4>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p><strong>Colunas:</strong> Período, RBT12, Entrada, Saída, Imposto</p>
+                      <p><strong>Obrigatório:</strong> Apenas o Período é obrigatório</p>
+                      <p><strong>Valores:</strong> Números em branco serão tratados como 0</p>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsImportDialogOpen(false)}
+                      disabled={isImporting}
+                    >
+                      Cancelar
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm">
