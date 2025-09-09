@@ -6,8 +6,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
-import { useCompaniesWithLatestFiscalData, useDeleteCompany, useAddCompany, useUpdateCompanyStatus } from '@/hooks/useFiscalData';
-import { Search, Building2, FileText, Plus, Trash2, Edit3, CheckCircle, AlertCircle, PauseCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useCompaniesWithLatestFiscalData, useDeleteCompany, useAddCompany, useUpdateCompanyStatus, useUpdateCompany } from '@/hooks/useFiscalData';
+import { Search, Building2, FileText, Plus, Trash2, Edit3, CheckCircle, AlertCircle, PauseCircle, Filter } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 
 interface CompanyListProps {
@@ -19,23 +20,39 @@ interface AddCompanyForm {
   cnpj: string;
 }
 
+interface EditCompanyForm {
+  name: string;
+  cnpj: string;
+}
+
 export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<{ id: string; name: string; cnpj: string } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<{ id: string; name: string; currentStatus: boolean } | null>(null);
   const { data: companies, isLoading } = useCompaniesWithLatestFiscalData();
   const deleteCompanyMutation = useDeleteCompany();
   const addCompanyMutation = useAddCompany();
+  const updateCompanyMutation = useUpdateCompany();
   const updateStatusMutation = useUpdateCompanyStatus();
   
   const { register, handleSubmit, reset, formState: { errors } } = useForm<AddCompanyForm>();
+  const { register: registerEdit, handleSubmit: handleEditSubmit, reset: resetEdit, setValue, formState: { errors: editErrors } } = useForm<EditCompanyForm>();
 
-  const filteredCompanies = companies?.filter(company =>
-    company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (company.cnpj && company.cnpj.includes(searchTerm))
-  );
+  const filteredCompanies = companies?.filter(company => {
+    const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (company.cnpj && company.cnpj.includes(searchTerm));
+    
+    const matchesStatus = statusFilter === '' || 
+      (statusFilter === 'ativa' && !company.sem_movimento) ||
+      (statusFilter === 'sem_movimento' && company.sem_movimento);
+    
+    return matchesSearch && matchesStatus;
+  });
 
   const handleDeleteCompany = (companyId: string, companyName: string) => {
     deleteCompanyMutation.mutate(companyId);
@@ -51,6 +68,29 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
         reset();
       }
     });
+  };
+
+  const handleEditCompany = (data: EditCompanyForm) => {
+    if (!editingCompany) return;
+    
+    updateCompanyMutation.mutate({
+      companyId: editingCompany.id,
+      name: data.name,
+      cnpj: data.cnpj || undefined,
+    }, {
+      onSuccess: () => {
+        setIsEditDialogOpen(false);
+        setEditingCompany(null);
+        resetEdit();
+      }
+    });
+  };
+
+  const openEditDialog = (company: any) => {
+    setEditingCompany({ id: company.id, name: company.name, cnpj: company.cnpj || '' });
+    setValue('name', company.name);
+    setValue('cnpj', company.cnpj || '');
+    setIsEditDialogOpen(true);
   };
 
   const handleStatusClick = (company: any) => {
@@ -175,14 +215,31 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
             </DialogContent>
           </Dialog>
         </div>
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Buscar por empresa ou CNPJ..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Buscar por empresa ou CNPJ..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por situação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Todas as situações</SelectItem>
+                <SelectItem value="ativa">Ativas</SelectItem>
+                <SelectItem value="sem_movimento">Sem Movimento</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -296,36 +353,50 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                     </div>
                   </TableCell>
                   <TableCell className="text-center w-12">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Tem certeza que deseja excluir a empresa "{company.name}"? 
-                            Esta ação também removerá todos os dados fiscais associados e não pode ser desfeita.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDeleteCompany(company.id, company.name)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditDialog(company);
+                        }}
+                        title="Editar empresa"
+                      >
+                        <Edit3 className="h-3 w-3" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja excluir a empresa "{company.name}"? 
+                              Esta ação também removerá todos os dados fiscais associados e não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteCompany(company.id, company.name)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -427,6 +498,59 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
             Cancelar
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Modal de Edição da Empresa */}
+    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar Empresa</DialogTitle>
+          <DialogDescription>
+            Altere os dados da empresa.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleEditSubmit(handleEditCompany)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">Nome da Empresa *</Label>
+            <Input
+              id="edit-name"
+              {...registerEdit('name', { required: 'Nome da empresa é obrigatório' })}
+              placeholder="Digite o nome da empresa"
+            />
+            {editErrors.name && (
+              <p className="text-sm text-destructive">{editErrors.name.message}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-cnpj">CNPJ</Label>
+            <Input
+              id="edit-cnpj"
+              {...registerEdit('cnpj')}
+              placeholder="00.000.000/0000-00 (opcional)"
+              maxLength={18}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsEditDialogOpen(false);
+                setEditingCompany(null);
+                resetEdit();
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={updateCompanyMutation.isPending}
+            >
+              {updateCompanyMutation.isPending ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   </div>

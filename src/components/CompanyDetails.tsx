@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useCompanyWithData, useAddFiscalData, useImportCompanyExcel } from '@/hooks/useFiscalData';
-import { Download, ArrowUpDown, Building2, Calculator, Plus, Upload, FileDown, X } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useCompanyWithData, useAddFiscalData, useImportCompanyExcel, useUpdateFiscalData, useDeleteFiscalData } from '@/hooks/useFiscalData';
+import { Download, ArrowUpDown, Building2, Calculator, Plus, Upload, FileDown, X, Edit3, Trash2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useForm } from 'react-hook-form';
 import * as XLSX from 'xlsx';
@@ -15,12 +16,11 @@ import * as XLSX from 'xlsx';
 // Helper function to parse fiscal period to Date for comparison
 const parsePeriodToDate = (period: string): Date => {
   if (!period || period.trim() === '') {
-    return new Date(0); // Return epoch for invalid periods
+    return new Date(0);
   }
 
   const periodStr = period.toLowerCase().trim();
   
-  // Month names mapping
   const monthNames: { [key: string]: number } = {
     'janeiro': 0, 'fevereiro': 1, 'março': 2, 'marco': 2, 'abril': 3,
     'maio': 4, 'junho': 5, 'julho': 6, 'agosto': 7,
@@ -29,19 +29,12 @@ const parsePeriodToDate = (period: string): Date => {
     'jul': 6, 'ago': 7, 'set': 8, 'out': 9, 'nov': 10, 'dez': 11
   };
 
-  // Try different patterns
   const patterns = [
-    // "Janeiro/2024", "Dezembro/2023"
     /^([a-zç]+)\/(\d{4})$/,
-    // "Jan/2024", "Dez/2023"
     /^([a-zç]+)\/(\d{4})$/,
-    // "01/2024", "12/2023"
     /^(\d{1,2})\/(\d{4})$/,
-    // "2024-01", "2023-12"
     /^(\d{4})-(\d{1,2})$/,
-    // "Janeiro 2024", "Dezembro 2023"
     /^([a-zç]+)\s+(\d{4})$/,
-    // "Jan 2024", "Dez 2023"
     /^([a-zç]+)\s+(\d{4})$/
   ];
 
@@ -55,14 +48,12 @@ const parsePeriodToDate = (period: string): Date => {
         continue;
       }
 
-      // Check if first group is a month name
       if (monthNames[match[1]]) {
         month = monthNames[match[1]];
       } else {
-        // Check if it's a numeric month
         const numericMonth = parseInt(match[1], 10);
         if (!isNaN(numericMonth) && numericMonth >= 1 && numericMonth <= 12) {
-          month = numericMonth - 1; // JavaScript months are 0-based
+          month = numericMonth - 1;
         } else {
           continue;
         }
@@ -72,13 +63,11 @@ const parsePeriodToDate = (period: string): Date => {
     }
   }
 
-  // If no pattern matches, try to parse as a regular date
   const fallbackDate = new Date(period);
   if (!isNaN(fallbackDate.getTime())) {
     return fallbackDate;
   }
 
-  // Return epoch for unparseable periods
   return new Date(0);
 };
 
@@ -94,6 +83,14 @@ interface AddFiscalDataForm {
   imposto: string;
 }
 
+interface EditFiscalDataForm {
+  period: string;
+  rbt12: string;
+  entrada: string;
+  saida: string;
+  imposto: string;
+}
+
 export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
   const { data: company, isLoading } = useCompanyWithData(companyId);
   const [sortField, setSortField] = useState<'period' | 'entrada' | 'saida' | 'imposto'>('period');
@@ -101,28 +98,31 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
   const [filterPeriod, setFilterPeriod] = useState('');
   const [filterYear, setFilterYear] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingFiscalData, setEditingFiscalData] = useState<any>(null);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const addFiscalDataMutation = useAddFiscalData();
+  const updateFiscalDataMutation = useUpdateFiscalData();
+  const deleteFiscalDataMutation = useDeleteFiscalData();
   const importExcelMutation = useImportCompanyExcel();
   
   const { register, handleSubmit, reset, formState: { errors } } = useForm<AddFiscalDataForm>();
+  const { register: registerEdit, handleSubmit: handleEditSubmit, reset: resetEdit, setValue, formState: { errors: editErrors } } = useForm<EditFiscalDataForm>();
 
-  // Extract unique years from fiscal data
   const availableYears = useMemo(() => {
     if (!company?.fiscal_data) return [];
     
     const years = new Set<string>();
     company.fiscal_data.forEach(item => {
-      // Extract year from period string
       const yearMatch = item.period.match(/\d{4}/);
       if (yearMatch) {
         years.add(yearMatch[0]);
       }
     });
     
-    return Array.from(years).sort((a, b) => b.localeCompare(a)); // Sort descending
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
   }, [company?.fiscal_data]);
 
   const sortedAndFilteredData = useMemo(() => {
@@ -130,14 +130,12 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
 
     let filtered = company.fiscal_data;
     
-    // Filter by period text
     if (filterPeriod) {
       filtered = filtered.filter(item => 
         item.period.toLowerCase().includes(filterPeriod.toLowerCase())
       );
     }
     
-    // Filter by year
     if (filterYear) {
       filtered = filtered.filter(item => 
         item.period.includes(filterYear)
@@ -199,38 +197,6 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
     }
   };
 
-  const exportToExcel = () => {
-    if (!company || !sortedAndFilteredData) return;
-
-    const exportData = sortedAndFilteredData.map(item => ({
-      'Empresa': company.name,
-      'CNPJ': company.cnpj || 'N/A',
-      'Período': item.period,
-      'RBT12': item.rbt12,
-      'Entrada': item.entrada,
-      'Saída': item.saida,
-      'Imposto': item.imposto,
-    }));
-
-    // Add totals row
-    exportData.push({
-      'Empresa': 'TOTAL',
-      'CNPJ': '',
-      'Período': '',
-      'RBT12': totals.rbt12,
-      'Entrada': totals.entrada,
-      'Saída': totals.saida,
-      'Imposto': totals.imposto,
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Dados Fiscais');
-    
-    const fileName = `${company.name.replace(/[^\w\s]/gi, '')}_dados_fiscais.xlsx`;
-    XLSX.writeFile(workbook, fileName);
-  };
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -254,65 +220,37 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
     });
   };
 
-  const downloadTemplate = () => {
-    const template = [
-      {
-        'Período': 'Janeiro/2024',
-        'RBT12': 1000000,
-        'Entrada': 500000,
-        'Saída': 300000,
-        'Imposto': 50000,
-      },
-      {
-        'Período': 'Fevereiro/2024',
-        'RBT12': 1100000,
-        'Entrada': 550000,
-        'Saída': 320000,
-        'Imposto': 55000,
-      },
-    ];
-
-    const worksheet = XLSX.utils.json_to_sheet(template);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+  const handleEditFiscalData = (data: EditFiscalDataForm) => {
+    if (!editingFiscalData) return;
     
-    XLSX.writeFile(workbook, 'template_dados_fiscais.xlsx');
+    updateFiscalDataMutation.mutate({
+      id: editingFiscalData.id,
+      period: data.period,
+      rbt12: parseFloat(data.rbt12) || 0,
+      entrada: parseFloat(data.entrada) || 0,
+      saida: parseFloat(data.saida) || 0,
+      imposto: parseFloat(data.imposto) || 0,
+    }, {
+      onSuccess: () => {
+        setIsEditDialogOpen(false);
+        setEditingFiscalData(null);
+        resetEdit();
+      }
+    });
   };
 
-  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const openEditDialog = (fiscalData: any) => {
+    setEditingFiscalData(fiscalData);
+    setValue('period', fiscalData.period);
+    setValue('rbt12', fiscalData.rbt12?.toString() || '');
+    setValue('entrada', fiscalData.entrada?.toString() || '');
+    setValue('saida', fiscalData.saida?.toString() || '');
+    setValue('imposto', fiscalData.imposto?.toString() || '');
+    setIsEditDialogOpen(true);
+  };
 
-    setIsImporting(true);
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-        const mappedData = jsonData.map((row: any) => ({
-          periodo: row['Período'] || row['periodo'] || row['Period'] || '',
-          rbt12: parseFloat(row['RBT12'] || row['rbt12'] || '0') || null,
-          entrada: parseFloat(row['Entrada'] || row['entrada'] || row['Entry'] || '0') || null,
-          saida: parseFloat(row['Saída'] || row['saida'] || row['Exit'] || '0') || null,
-          imposto: parseFloat(row['Imposto'] || row['imposto'] || row['Tax'] || '0') || null,
-        }));
-
-        importExcelMutation.mutate({ companyId, data: mappedData });
-      } catch (error) {
-        console.error('Error reading file:', error);
-      } finally {
-        setIsImporting(false);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      }
-    };
-
-    reader.readAsArrayBuffer(file);
+  const handleDeleteFiscalData = (fiscalDataId: string) => {
+    deleteFiscalDataMutation.mutate(fiscalDataId);
   };
 
   if (isLoading) {
@@ -353,19 +291,6 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
               {company.name}
             </div>
             <div className="flex gap-2">
-              <Button onClick={downloadTemplate} variant="outline" size="sm">
-                <FileDown className="h-4 w-4 mr-2" />
-                Baixar Template
-              </Button>
-              <Button 
-                onClick={() => fileInputRef.current?.click()} 
-                variant="outline" 
-                size="sm"
-                disabled={isImporting}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                {isImporting ? 'Importando...' : 'Importar Excel'}
-              </Button>
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm">
@@ -455,204 +380,20 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
                   </form>
                 </DialogContent>
               </Dialog>
-              <Button onClick={exportToExcel} size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar Excel
-              </Button>
             </div>
           </CardTitle>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleFileImport}
-            style={{ display: 'none' }}
-          />
-          <p className="text-sm text-muted-foreground">
-            CNPJ: {company.cnpj 
-              ? company.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-              : 'N/A'
-            }
-          </p>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="text-center p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-              <p className="text-sm font-medium text-green-700 dark:text-green-300">Total Entradas</p>
-              <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.entrada)}</p>
-            </div>
-            <div className="text-center p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
-              <p className="text-sm font-medium text-red-700 dark:text-red-300">Total Saídas</p>
-              <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(totals.saida)}</p>
-            </div>
-            <div className="text-center p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
-              <p className="text-sm font-medium text-orange-700 dark:text-orange-300">Total Impostos</p>
-              <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{formatCurrency(totals.imposto)}</p>
-            </div>
-          </div>
-
-          {sortedAndFilteredData.length > 0 && (
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5" />
-                  Evolução das Entradas e Saídas
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80 min-h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={sortedAndFilteredData.slice().reverse()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="period" 
-                        tick={{ fontSize: 12 }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={70}
-                      />
-                      <YAxis 
-                        tick={{ fontSize: 12 }}
-                        tickFormatter={(value) => 
-                          new Intl.NumberFormat('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL',
-                            minimumFractionDigits: 0,
-                            maximumFractionDigits: 0,
-                          }).format(value)
-                        }
-                      />
-                      <Tooltip 
-                        formatter={(value: number) => [
-                          new Intl.NumberFormat('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL'
-                          }).format(value)
-                        ]}
-                        labelFormatter={(label) => `Período: ${label}`}
-                      />
-                      <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="entrada" 
-                        stroke="#10b981" 
-                        strokeWidth={2}
-                        name="Entradas"
-                        dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="saida" 
-                        stroke="#ef4444" 
-                        strokeWidth={2}
-                        name="Saídas"
-                        dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <Input
-              placeholder="Filtrar por período..."
-              value={filterPeriod}
-              onChange={(e) => setFilterPeriod(e.target.value)}
-              className="max-w-xs"
-            />
-            <Select value={filterYear || "all"} onValueChange={(value) => setFilterYear(value === "all" ? "" : value)}>
-              <SelectTrigger className="max-w-xs">
-                <SelectValue placeholder="Filtrar por ano..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os anos</SelectItem>
-                {availableYears.map(year => (
-                  <SelectItem key={year} value={year}>{year}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={`${sortField}-${sortDirection}`} onValueChange={(value) => {
-              const [field, direction] = value.split('-') as [typeof sortField, typeof sortDirection];
-              setSortField(field);
-              setSortDirection(direction);
-            }}>
-              <SelectTrigger className="max-w-xs">
-                <SelectValue placeholder="Ordenar por..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="period-desc">Período (Mais recente)</SelectItem>
-                <SelectItem value="period-asc">Período (Mais antigo)</SelectItem>
-                <SelectItem value="entrada-desc">Entrada (Maior)</SelectItem>
-                <SelectItem value="entrada-asc">Entrada (Menor)</SelectItem>
-                <SelectItem value="saida-desc">Saída (Maior)</SelectItem>
-                <SelectItem value="saida-asc">Saída (Menor)</SelectItem>
-                <SelectItem value="imposto-desc">Imposto (Maior)</SelectItem>
-                <SelectItem value="imposto-asc">Imposto (Menor)</SelectItem>
-              </SelectContent>
-            </Select>
-            {(filterPeriod || filterYear) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setFilterPeriod('');
-                  setFilterYear('');
-                }}
-                className="flex items-center gap-2"
-              >
-                <X className="h-4 w-4" />
-                Limpar Filtros
-              </Button>
-            )}
-          </div>
-
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('period')}
-                      className="h-auto p-0 font-semibold"
-                    >
-                      Período
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
+                  <TableHead>Período</TableHead>
                   <TableHead className="text-right">RBT12</TableHead>
-                  <TableHead className="text-right">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('entrada')}
-                      className="h-auto p-0 font-semibold"
-                    >
-                      Entrada
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-right">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('saida')}
-                      className="h-auto p-0 font-semibold"
-                    >
-                      Saída
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-right">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('imposto')}
-                      className="h-auto p-0 font-semibold"
-                    >
-                      Imposto
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
+                  <TableHead className="text-right">Entrada</TableHead>
+                  <TableHead className="text-right">Saída</TableHead>
+                  <TableHead className="text-right">Imposto</TableHead>
+                  <TableHead className="w-24">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -669,6 +410,49 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
                     <TableCell className="text-right text-orange-600 dark:text-orange-400">
                       {formatCurrency(item.imposto || 0)}
                     </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
+                          onClick={() => openEditDialog(item)}
+                          title="Editar dados fiscais"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                              title="Excluir dados fiscais"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir os dados fiscais do período "{item.period}"?
+                                Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteFiscalData(item.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {sortedAndFilteredData.length === 0 && (
@@ -684,6 +468,92 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Modal de Edição dos Dados Fiscais */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Dados Fiscais</DialogTitle>
+            <DialogDescription>
+              Altere os dados fiscais de {company?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit(handleEditFiscalData)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-period">Período *</Label>
+              <Input
+                id="edit-period"
+                {...registerEdit('period', { required: 'Período é obrigatório' })}
+                placeholder="Ex: Janeiro/2024"
+              />
+              {editErrors.period && (
+                <p className="text-sm text-destructive">{editErrors.period.message}</p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-rbt12">RBT12</Label>
+                <Input
+                  id="edit-rbt12"
+                  type="number"
+                  step="0.01"
+                  {...registerEdit('rbt12')}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-entrada">Entrada</Label>
+                <Input
+                  id="edit-entrada"
+                  type="number"
+                  step="0.01"
+                  {...registerEdit('entrada')}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-saida">Saída</Label>
+                <Input
+                  id="edit-saida"
+                  type="number"
+                  step="0.01"
+                  {...registerEdit('saida')}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-imposto">Imposto</Label>
+                <Input
+                  id="edit-imposto"
+                  type="number"
+                  step="0.01"
+                  {...registerEdit('imposto')}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setEditingFiscalData(null);
+                  resetEdit();
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={updateFiscalDataMutation.isPending}
+              >
+                {updateFiscalDataMutation.isPending ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

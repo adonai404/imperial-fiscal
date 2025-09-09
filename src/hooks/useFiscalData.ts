@@ -457,6 +457,124 @@ export const useUpdateCompanyStatus = () => {
   });
 };
 
+export const useUpdateCompany = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ companyId, name, cnpj }: { companyId: string; name: string; cnpj?: string }) => {
+      const { data, error } = await supabase
+        .from('companies')
+        .update({ 
+          name: name.trim(),
+          cnpj: cnpj?.trim() || null
+        })
+        .eq('id', companyId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
+      queryClient.invalidateQueries({ queryKey: ['company'] });
+      
+      toast({
+        title: 'Empresa atualizada',
+        description: 'Os dados da empresa foram atualizados com sucesso.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro ao atualizar empresa',
+        description: error instanceof Error ? error.message : 'Ocorreu um erro ao atualizar a empresa.',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+export const useUpdateFiscalData = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      period: string;
+      rbt12: number;
+      entrada: number;
+      saida: number;
+      imposto: number;
+    }) => {
+      const { data: result, error } = await supabase
+        .from('fiscal_data')
+        .update({
+          period: data.period.trim(),
+          rbt12: data.rbt12 || 0,
+          entrada: data.entrada || 0,
+          saida: data.saida || 0,
+          imposto: data.imposto || 0,
+        })
+        .eq('id', data.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company'] });
+      queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-stats'] });
+      
+      toast({
+        title: 'Dados fiscais atualizados',
+        description: 'Os dados fiscais foram atualizados com sucesso.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro ao atualizar dados fiscais',
+        description: error instanceof Error ? error.message : 'Ocorreu um erro ao atualizar os dados fiscais.',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+export const useDeleteFiscalData = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (fiscalDataId: string) => {
+      const { error } = await supabase
+        .from('fiscal_data')
+        .delete()
+        .eq('id', fiscalDataId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company'] });
+      queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-stats'] });
+      
+      toast({
+        title: 'Dados fiscais excluídos',
+        description: 'Os dados fiscais foram removidos com sucesso.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro ao excluir dados fiscais',
+        description: error instanceof Error ? error.message : 'Ocorreu um erro ao excluir os dados fiscais.',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
 export const useImportExcel = () => {
   const queryClient = useQueryClient();
 
