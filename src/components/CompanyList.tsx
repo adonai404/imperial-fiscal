@@ -555,11 +555,11 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                 <TableHead className="border-r border-border font-semibold text-foreground min-w-0 flex-1">Nome da Empresa</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-24 hidden sm:table-cell">CNPJ</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-28 hidden sm:table-cell">Segmento</TableHead>
+                <TableHead className="border-r border-border font-semibold text-foreground w-24 hidden sm:table-cell">Período</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden md:table-cell">RBT12</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden lg:table-cell">Entrada</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden lg:table-cell">Saída</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden xl:table-cell">Imposto</TableHead>
-                <TableHead className="border-r border-border font-semibold text-foreground w-24 hidden xl:table-cell">Período</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-24">Situação</TableHead>
                 <TableHead className="w-12 font-semibold text-foreground">Ações</TableHead>
               </TableRow>
@@ -596,6 +596,13 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                   <TableCell className="border-r border-border text-foreground w-28 hidden sm:table-cell">
                     <span className="truncate block text-xs">
                       {company.segmento || 'N/A'}
+                    </span>
+                  </TableCell>
+                  <TableCell className="border-r border-border text-foreground w-24 hidden sm:table-cell">
+                    <span className="truncate block text-xs">
+                      {hasPassword(company) ? (
+                        <span className="text-muted-foreground">***</span>
+                      ) : company.latest_fiscal_data?.period || 'N/A'}
                     </span>
                   </TableCell>
                   <TableCell className="border-r border-border text-right text-foreground w-20 hidden md:table-cell">
@@ -652,13 +659,6 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                           maximumFractionDigits: 0
                         }) : 'N/A'
                       }
-                    </span>
-                  </TableCell>
-                  <TableCell className="border-r border-border text-foreground w-24 hidden xl:table-cell">
-                    <span className="truncate block text-xs">
-                      {hasPassword(company) ? (
-                        <span className="text-muted-foreground">***</span>
-                      ) : company.latest_fiscal_data?.period || 'N/A'}
                     </span>
                   </TableCell>
                   <TableCell className="border-r border-border text-center w-24">

@@ -21,7 +21,7 @@ const sections = [{
   icon: Building2
 }, {
   id: "settings",
-  title: "Configurações",
+  title: "Opções",
   icon: Settings
 }];
 export function AppSidebar({

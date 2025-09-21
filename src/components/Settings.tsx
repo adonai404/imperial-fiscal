@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,10 +8,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCompaniesWithLatestFiscalData, useSetCompanyPassword, useRemoveCompanyPassword } from '@/hooks/useFiscalData';
-import { Settings as SettingsIcon, Lock, Key, Building2, Trash2, Shield, Search, Filter, Eye, EyeOff, AlertTriangle, Users, Database } from 'lucide-react';
+import { Settings as SettingsIcon, Lock, Key, Building2, Trash2, Shield, Search, Filter, Eye, EyeOff, AlertTriangle, Users, Database, Plus, X, FileText, Download, Upload, FileSpreadsheet } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 
 interface SettingsProps {}
 
@@ -20,12 +23,35 @@ interface PasswordForm {
   confirmPassword: string;
 }
 
+interface CompanyRegime {
+  id: string;
+  cnpj: string;
+  regime: 'lucro_real' | 'lucro_presumido' | 'simples_nacional';
+}
+
+interface RegimeForm {
+  regime: 'lucro_real' | 'lucro_presumido' | 'simples_nacional';
+  cnpjs: string[];
+}
+
 export const Settings = ({}: SettingsProps) => {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<{ id: string; name: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'protected' | 'unprotected'>('all');
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Estados para gerenciamento de regimes
+  const [companyRegimes, setCompanyRegimes] = useState<CompanyRegime[]>([]);
+  const [newCnpj, setNewCnpj] = useState('');
+  const [selectedRegime, setSelectedRegime] = useState<'lucro_real' | 'lucro_presumido' | 'simples_nacional'>('lucro_real');
+  
+  // Estados para Kanban e importação
+  const [isAddCnpjDialogOpen, setIsAddCnpjDialogOpen] = useState(false);
+  const [currentRegimeForAdd, setCurrentRegimeForAdd] = useState<'lucro_real' | 'lucro_presumido' | 'simples_nacional'>('lucro_real');
+  const [tempCnpj, setTempCnpj] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const { data: companies, isLoading } = useCompaniesWithLatestFiscalData();
   const setPasswordMutation = useSetCompanyPassword();
   const removePasswordMutation = useRemoveCompanyPassword();
@@ -40,6 +66,217 @@ export const Settings = ({}: SettingsProps) => {
 
   const handleRemovePassword = (company: any) => {
     removePasswordMutation.mutate(company.id);
+  };
+
+  // Funções para gerenciar regimes
+  const addCnpjToRegime = () => {
+    if (!newCnpj.trim()) return;
+    
+    const cnpj = newCnpj.replace(/\D/g, ''); // Remove caracteres não numéricos
+    if (cnpj.length !== 14) {
+      toast({
+        title: "Erro",
+        description: "CNPJ deve ter 14 dígitos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar se CNPJ já existe
+    if (companyRegimes.some(cr => cr.cnpj === cnpj)) {
+      toast({
+        title: "Erro",
+        description: "Este CNPJ já foi adicionado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newCompanyRegime: CompanyRegime = {
+      id: Date.now().toString(),
+      cnpj,
+      regime: selectedRegime
+    };
+
+    setCompanyRegimes(prev => [...prev, newCompanyRegime]);
+    setNewCnpj('');
+    
+    toast({
+      title: "Sucesso",
+      description: `CNPJ adicionado ao regime ${getRegimeLabel(selectedRegime)}.`,
+    });
+  };
+
+  const removeCnpjFromRegime = (id: string) => {
+    setCompanyRegimes(prev => prev.filter(cr => cr.id !== id));
+  };
+
+  const getRegimeLabel = (regime: string) => {
+    const labels = {
+      'lucro_real': 'Lucro Real',
+      'lucro_presumido': 'Lucro Presumido',
+      'simples_nacional': 'Simples Nacional'
+    };
+    return labels[regime as keyof typeof labels] || regime;
+  };
+
+  const formatCnpj = (cnpj: string) => {
+    return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  };
+
+  const getRegimeCompanies = (regime: string) => {
+    return companyRegimes.filter(cr => cr.regime === regime);
+  };
+
+  // Funções para Kanban
+  const openAddCnpjDialog = (regime: 'lucro_real' | 'lucro_presumido' | 'simples_nacional') => {
+    setCurrentRegimeForAdd(regime);
+    setTempCnpj('');
+    setIsAddCnpjDialogOpen(true);
+  };
+
+  const addCnpjToRegimeFromKanban = () => {
+    if (!tempCnpj.trim()) return;
+    
+    const cnpj = tempCnpj.replace(/\D/g, '');
+    if (cnpj.length !== 14) {
+      toast({
+        title: "Erro",
+        description: "CNPJ deve ter 14 dígitos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (companyRegimes.some(cr => cr.cnpj === cnpj)) {
+      toast({
+        title: "Erro",
+        description: "Este CNPJ já foi adicionado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newCompanyRegime: CompanyRegime = {
+      id: Date.now().toString(),
+      cnpj,
+      regime: currentRegimeForAdd
+    };
+
+    setCompanyRegimes(prev => [...prev, newCompanyRegime]);
+    setTempCnpj('');
+    setIsAddCnpjDialogOpen(false);
+    
+    toast({
+      title: "Sucesso",
+      description: `CNPJ adicionado ao regime ${getRegimeLabel(currentRegimeForAdd)}.`,
+    });
+  };
+
+  // Funções para importação/exportação
+  const downloadTemplate = () => {
+    const templateData = [
+      { CNPJ: '00000000000100', Regime: 'lucro_real' },
+      { CNPJ: '00000000000200', Regime: 'lucro_presumido' },
+      { CNPJ: '00000000000300', Regime: 'simples_nacional' }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Regimes');
+    
+    XLSX.writeFile(wb, 'template_regimes_empresas.xlsx');
+    
+    toast({
+      title: "Template baixado",
+      description: "O template foi baixado com sucesso. Preencha com os dados das suas empresas.",
+    });
+  };
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!Array.isArray(jsonData) || jsonData.length === 0) {
+          toast({
+            title: "Erro",
+            description: "Planilha vazia ou formato inválido.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const validRegimes = ['lucro_real', 'lucro_presumido', 'simples_nacional'];
+        const importedRegimes: CompanyRegime[] = [];
+        const errors: string[] = [];
+
+        jsonData.forEach((row: any, index: number) => {
+          const cnpj = String(row.CNPJ || '').replace(/\D/g, '');
+          const regime = String(row.Regime || '').toLowerCase().replace(/\s+/g, '_');
+
+          if (cnpj.length !== 14) {
+            errors.push(`Linha ${index + 2}: CNPJ inválido (${row.CNPJ})`);
+            return;
+          }
+
+          if (!validRegimes.includes(regime)) {
+            errors.push(`Linha ${index + 2}: Regime inválido (${row.Regime}). Use: Lucro Real, Lucro Presumido ou Simples Nacional`);
+            return;
+          }
+
+          if (companyRegimes.some(cr => cr.cnpj === cnpj)) {
+            errors.push(`Linha ${index + 2}: CNPJ já existe (${cnpj})`);
+            return;
+          }
+
+          importedRegimes.push({
+            id: `${Date.now()}_${index}`,
+            cnpj,
+            regime: regime as 'lucro_real' | 'lucro_presumido' | 'simples_nacional'
+          });
+        });
+
+        if (importedRegimes.length > 0) {
+          setCompanyRegimes(prev => [...prev, ...importedRegimes]);
+          toast({
+            title: "Importação concluída",
+            description: `${importedRegimes.length} empresa(s) importada(s) com sucesso.`,
+          });
+        }
+
+        if (errors.length > 0) {
+          toast({
+            title: "Avisos na importação",
+            description: `${errors.length} linha(s) com problemas. Verifique os dados.`,
+            variant: "destructive",
+          });
+          console.warn('Erros na importação:', errors);
+        }
+
+      } catch (error) {
+        toast({
+          title: "Erro na importação",
+          description: "Não foi possível processar o arquivo. Verifique o formato.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+    
+    // Limpar o input para permitir importar o mesmo arquivo novamente
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const onSubmitPassword = (data: PasswordForm) => {
@@ -94,7 +331,7 @@ export const Settings = ({}: SettingsProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <SettingsIcon className="h-5 w-5" />
-            Configurações
+            Opções
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -114,15 +351,30 @@ export const Settings = ({}: SettingsProps) => {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
           <SettingsIcon className="h-8 w-8 text-primary" />
-          Configurações
+          Opções
         </h1>
         <p className="text-muted-foreground">
-          Gerencie as configurações de segurança e acesso do sistema
+          Gerencie as configurações de segurança e regimes das empresas
         </p>
       </div>
 
-      {/* Estatísticas de Segurança */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Tabs para as subseções */}
+      <Tabs defaultValue="security" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="security" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Segurança
+          </TabsTrigger>
+          <TabsTrigger value="regimes" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Definir Regime das Empresas
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Subseção Segurança */}
+        <TabsContent value="security" className="space-y-6">
+          {/* Estatísticas de Segurança */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border-l-4 border-l-blue-500">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -324,7 +576,7 @@ export const Settings = ({}: SettingsProps) => {
         </CardContent>
       </Card>
 
-      {/* Dialog para definir/alterar senha */}
+          {/* Dialog para definir/alterar senha */}
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -447,6 +699,199 @@ export const Settings = ({}: SettingsProps) => {
           </form>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        {/* Subseção Definir Regime das Empresas */}
+        <TabsContent value="regimes" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Definir Regime das Empresas
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Configure os regimes tributários das empresas usando o formato Kanban ou importe uma planilha.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Botões de Importação/Exportação */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button
+                  variant="outline"
+                  onClick={downloadTemplate}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Baixar Template XLSX
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Importar Planilha XLSX
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleFileImport}
+                  className="hidden"
+                />
+              </div>
+
+              <Separator />
+
+              {/* Kanban Board */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {['lucro_real', 'lucro_presumido', 'simples_nacional'].map((regime) => {
+                  const regimeCompanies = getRegimeCompanies(regime);
+                  const regimeKey = regime as 'lucro_real' | 'lucro_presumido' | 'simples_nacional';
+                  
+                  return (
+                    <Card key={regime} className="flex flex-col h-fit">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            {getRegimeLabel(regime)}
+                          </CardTitle>
+                          <Badge variant="secondary">
+                            {regimeCompanies.length}
+                          </Badge>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openAddCnpjDialog(regimeKey)}
+                          className="w-full mt-2"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Incluir CNPJ
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="flex-1">
+                        <div className="space-y-2 min-h-[200px]">
+                          {regimeCompanies.length > 0 ? (
+                            regimeCompanies.map((company) => (
+                              <div
+                                key={company.id}
+                                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Building2 className="h-4 w-4 text-primary" />
+                                  <span className="font-mono text-sm">
+                                    {formatCnpj(company.cnpj)}
+                                  </span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeCnpjFromRegime(company.id)}
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-6 w-6 p-0"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                              <p className="text-sm">Nenhuma empresa</p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {companyRegimes.length === 0 && (
+                <div className="text-center py-12">
+                  <FileSpreadsheet className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-medium mb-2">Nenhum regime configurado</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Comece adicionando CNPJs manualmente ou importe uma planilha com os dados das empresas.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => openAddCnpjDialog('lucro_real')}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Adicionar Primeira Empresa
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={downloadTemplate}
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      Baixar Template
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Dialog para adicionar CNPJ no Kanban */}
+          <Dialog open={isAddCnpjDialogOpen} onOpenChange={setIsAddCnpjDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  Incluir CNPJ - {getRegimeLabel(currentRegimeForAdd)}
+                </DialogTitle>
+                <DialogDescription>
+                  Adicione um CNPJ ao regime {getRegimeLabel(currentRegimeForAdd)}.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tempCnpj">CNPJ da Empresa</Label>
+                  <Input
+                    id="tempCnpj"
+                    placeholder="00.000.000/0000-00"
+                    value={tempCnpj}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '');
+                      if (value.length <= 14) {
+                        setTempCnpj(value);
+                      }
+                    }}
+                    maxLength={14}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsAddCnpjDialogOpen(false);
+                    setTempCnpj('');
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={addCnpjToRegimeFromKanban}
+                  disabled={!tempCnpj.trim()}
+                  className="min-w-[120px]"
+                >
+                  Adicionar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
