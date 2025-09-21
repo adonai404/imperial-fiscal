@@ -81,6 +81,18 @@ export interface Company {
   updated_at: string;
 }
 
+export interface CompanyPassword {
+  id: string;
+  company_id: string;
+  password_hash: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyWithPassword extends Company {
+  company_passwords?: CompanyPassword;
+}
+
 export interface FiscalData {
   id: string;
   company_id: string;
@@ -130,7 +142,8 @@ export const useCompaniesWithLatestFiscalData = () => {
         .from('companies')
         .select(`
           *,
-          fiscal_data(rbt12, entrada, saida, imposto, period, created_at)
+          fiscal_data(rbt12, entrada, saida, imposto, period, created_at),
+          company_passwords!left(id, password_hash, created_at, updated_at)
         `)
         .order('name');
       
@@ -206,18 +219,48 @@ export const useFiscalStats = () => {
       const empresasParalisadas = 0; // Por enquanto, todas as empresas com sem_movimento são consideradas "sem movimento"
       const empresasSemMovimento = companiesResult.data?.filter(company => company.sem_movimento).length || 0;
       
-      const totals = fiscalDataResult.data?.reduce(
+      // Filtrar dados de empresas protegidas por senha
+      const companiesWithPasswords = await supabase
+        .from('companies')
+        .select(`
+          id,
+          name,
+          company_passwords!left(id)
+        `)
+        .not('company_passwords.id', 'is', null);
+
+      const protectedCompanyIds = new Set(companiesWithPasswords.data?.map(c => c.id) || []);
+      
+      // Verificar quais empresas protegidas estão autenticadas
+      const authenticatedProtectedIds = new Set();
+      companiesWithPasswords.data?.forEach(company => {
+        if (localStorage.getItem(`company_auth_${company.name}`) === 'true') {
+          authenticatedProtectedIds.add(company.id);
+        }
+      });
+
+      // Filtrar dados fiscais para incluir apenas empresas não protegidas ou autenticadas
+      const filteredFiscalData = fiscalDataResult.data?.filter(data => {
+        // Se a empresa não tem senha, incluir
+        if (!protectedCompanyIds.has(data.company_id)) {
+          return true;
+        }
+        // Se tem senha mas está autenticada, incluir
+        return authenticatedProtectedIds.has(data.company_id);
+      }) || [];
+      
+      const totals = filteredFiscalData.reduce(
         (acc, curr) => ({
           entrada: acc.entrada + (curr.entrada || 0),
           saida: acc.saida + (curr.saida || 0),
           imposto: acc.imposto + (curr.imposto || 0),
         }),
         { entrada: 0, saida: 0, imposto: 0 }
-      ) || { entrada: 0, saida: 0, imposto: 0 };
+      );
 
       return {
         totalCompanies,
-        totalRecords,
+        totalRecords: filteredFiscalData.length,
         empresasAtivas,
         empresasParalisadas,
         empresasSemMovimento,
@@ -463,7 +506,11 @@ export const useUpdateCompany = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ companyId, name, cnpj }: { companyId: string; name: string; cnpj?: string }) => {
+    mutationFn: async ({ companyId, name, cnpj }: { 
+      companyId: string; 
+      name: string; 
+      cnpj?: string;
+    }) => {
       const { data, error } = await supabase
         .from('companies')
         .update({ 
@@ -493,6 +540,101 @@ export const useUpdateCompany = () => {
         description: error instanceof Error ? error.message : 'Ocorreu um erro ao atualizar a empresa.',
         variant: 'destructive',
       });
+    },
+  });
+};
+
+// Hook para gerenciar senhas de empresas
+export const useSetCompanyPassword = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ companyId, password }: { 
+      companyId: string; 
+      password: string;
+    }) => {
+      // Hash simples da senha (em produção, use bcrypt ou similar)
+      const passwordHash = btoa(password);
+      
+      const { data, error } = await supabase
+        .from('company_passwords')
+        .upsert({
+          company_id: companyId,
+          password_hash: passwordHash
+        }, {
+          onConflict: 'company_id'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
+      
+      toast({
+        title: 'Senha definida',
+        description: 'A senha da empresa foi definida com sucesso.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro ao definir senha',
+        description: error instanceof Error ? error.message : 'Ocorreu um erro ao definir a senha.',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+export const useRemoveCompanyPassword = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (companyId: string) => {
+      const { error } = await supabase
+        .from('company_passwords')
+        .delete()
+        .eq('company_id', companyId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies-with-latest-data'] });
+      
+      toast({
+        title: 'Senha removida',
+        description: 'A senha da empresa foi removida com sucesso.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro ao remover senha',
+        description: error instanceof Error ? error.message : 'Ocorreu um erro ao remover a senha.',
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+export const useVerifyCompanyPassword = () => {
+  return useMutation({
+    mutationFn: async ({ companyId, password }: { 
+      companyId: string; 
+      password: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('company_passwords')
+        .select('password_hash')
+        .eq('company_id', companyId)
+        .single();
+
+      if (error) throw error;
+      
+      // Verificar se a senha corresponde ao hash
+      const passwordHash = btoa(password);
+      return passwordHash === data.password_hash;
     },
   });
 };
@@ -594,10 +736,40 @@ export const useFiscalEvolutionData = () => {
       
       if (error) throw error;
       
+      // Filtrar dados de empresas protegidas por senha
+      const companiesWithPasswords = await supabase
+        .from('companies')
+        .select(`
+          id,
+          name,
+          company_passwords!left(id)
+        `)
+        .not('company_passwords.id', 'is', null);
+
+      const protectedCompanyIds = new Set(companiesWithPasswords.data?.map(c => c.id) || []);
+      
+      // Verificar quais empresas protegidas estão autenticadas
+      const authenticatedProtectedIds = new Set();
+      companiesWithPasswords.data?.forEach(company => {
+        if (localStorage.getItem(`company_auth_${company.name}`) === 'true') {
+          authenticatedProtectedIds.add(company.id);
+        }
+      });
+
+      // Filtrar dados fiscais para incluir apenas empresas não protegidas ou autenticadas
+      const filteredData = data?.filter(item => {
+        // Se a empresa não tem senha, incluir
+        if (!protectedCompanyIds.has(item.companies.id)) {
+          return true;
+        }
+        // Se tem senha mas está autenticada, incluir
+        return authenticatedProtectedIds.has(item.companies.id);
+      }) || [];
+      
       // Agrupar dados por período e calcular totais
       const periodTotals = new Map();
       
-      data?.forEach(item => {
+      filteredData.forEach(item => {
         const period = item.period;
         if (!periodTotals.has(period)) {
           periodTotals.set(period, {

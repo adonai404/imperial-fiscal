@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { useForm } from 'react-hook-form';
 import * as XLSX from 'xlsx';
 import { CompanyFiscalEvolutionChart } from './CompanyFiscalEvolutionChart';
+import { CompanyPasswordAuth } from './CompanyPasswordAuth';
 
 // Helper function to parse fiscal period to Date for comparison
 const parsePeriodToDate = (period: string): Date => {
@@ -94,6 +95,8 @@ interface EditFiscalDataForm {
 
 export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
   const { data: company, isLoading } = useCompanyWithData(companyId);
+  const [isPasswordRequired, setIsPasswordRequired] = useState(false);
+  const [passwordAuthCompany, setPasswordAuthCompany] = useState<{ id: string; name: string } | null>(null);
   const [sortField, setSortField] = useState<'period' | 'entrada' | 'saida' | 'imposto'>('period');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filterPeriod, setFilterPeriod] = useState('');
@@ -113,6 +116,37 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
   
   const { register, handleSubmit, reset, formState: { errors } } = useForm<AddFiscalDataForm>();
   const { register: registerEdit, handleSubmit: handleEditSubmit, reset: resetEdit, setValue, formState: { errors: editErrors } } = useForm<EditFiscalDataForm>();
+
+  // Verificar se a empresa tem senha e se está autenticada
+  const hasPassword = (company: any) => {
+    return company?.company_passwords && company.company_passwords.id !== null;
+  };
+
+  const isCompanyAuthenticated = (companyName: string) => {
+    return localStorage.getItem(`company_auth_${companyName}`) === 'true';
+  };
+
+  // Verificar autenticação quando a empresa carregar
+  React.useEffect(() => {
+    if (company && hasPassword(company)) {
+      if (!isCompanyAuthenticated(company.name)) {
+        setIsPasswordRequired(true);
+        setPasswordAuthCompany({ id: company.id, name: company.name });
+      }
+    }
+  }, [company]);
+
+  const handlePasswordSuccess = () => {
+    setIsPasswordRequired(false);
+    setPasswordAuthCompany(null);
+  };
+
+  const handlePasswordCancel = () => {
+    setIsPasswordRequired(false);
+    setPasswordAuthCompany(null);
+    // Voltar para a lista de empresas
+    window.history.back();
+  };
 
   const availableYears = useMemo(() => {
     if (!company?.fiscal_data) return [];
@@ -362,6 +396,18 @@ export const CompanyDetails = ({ companyId }: CompanyDetailsProps) => {
       handleFileSelect(files[0]);
     }
   };
+
+  // Mostrar tela de autenticação se necessário
+  if (isPasswordRequired && passwordAuthCompany) {
+    return (
+      <CompanyPasswordAuth
+        companyName={passwordAuthCompany.name}
+        companyId={passwordAuthCompany.id}
+        onSuccess={handlePasswordSuccess}
+        onCancel={handlePasswordCancel}
+      />
+    );
+  }
 
   if (isLoading) {
     return (

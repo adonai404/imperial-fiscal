@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useCompaniesWithLatestFiscalData, useDeleteCompany, useAddCompany, useUpdateCompanyStatus, useUpdateCompany } from '@/hooks/useFiscalData';
-import { Search, Building2, FileText, Plus, Trash2, Edit3, CheckCircle, AlertCircle, PauseCircle, Filter, X, ArrowUpDown, Calendar, DollarSign } from 'lucide-react';
+import { Search, Building2, FileText, Plus, Trash2, Edit3, CheckCircle, AlertCircle, PauseCircle, Filter, X, ArrowUpDown, Calendar, DollarSign, Lock } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { CompanyPasswordAuth } from './CompanyPasswordAuth';
 
 interface CompanyListProps {
   onSelectCompany: (companyId: string) => void;
@@ -20,11 +21,13 @@ interface CompanyListProps {
 interface AddCompanyForm {
   name: string;
   cnpj: string;
+  segmento: string;
 }
 
 interface EditCompanyForm {
   name: string;
   cnpj: string;
+  segmento: string;
 }
 
 interface FilterState {
@@ -49,19 +52,25 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
   });
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<{ id: string; name: string; cnpj: string } | null>(null);
+  const [editingCompany, setEditingCompany] = useState<{ id: string; name: string; cnpj: string; segmento: string } | null>(null);
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<{ id: string; name: string; currentStatus: boolean } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [passwordAuthCompany, setPasswordAuthCompany] = useState<{ id: string; name: string } | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const { data: companies, isLoading } = useCompaniesWithLatestFiscalData();
   const deleteCompanyMutation = useDeleteCompany();
   const addCompanyMutation = useAddCompany();
   const updateCompanyMutation = useUpdateCompany();
   const updateStatusMutation = useUpdateCompanyStatus();
   
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<AddCompanyForm>();
-  const { register: registerEdit, handleSubmit: handleEditSubmit, reset: resetEdit, setValue, formState: { errors: editErrors } } = useForm<EditCompanyForm>();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<AddCompanyForm>({
+    mode: 'onChange'
+  });
+  const { register: registerEdit, handleSubmit: handleEditSubmit, reset: resetEdit, setValue, formState: { errors: editErrors } } = useForm<EditCompanyForm>({
+    mode: 'onChange'
+  });
 
   const filteredAndSortedCompanies = companies?.filter(company => {
     // Filtro de busca
@@ -137,6 +146,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
     addCompanyMutation.mutate({
       name: data.name,
       cnpj: data.cnpj || undefined,
+      segmento: data.segmento || undefined,
     }, {
       onSuccess: () => {
         setIsAddDialogOpen(false);
@@ -152,6 +162,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
       companyId: editingCompany.id,
       name: data.name,
       cnpj: data.cnpj || undefined,
+      segmento: data.segmento || undefined,
     }, {
       onSuccess: () => {
         setIsEditDialogOpen(false);
@@ -162,9 +173,10 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
   };
 
   const openEditDialog = (company: any) => {
-    setEditingCompany({ id: company.id, name: company.name, cnpj: company.cnpj || '' });
+    setEditingCompany({ id: company.id, name: company.name, cnpj: company.cnpj || '', segmento: company.segmento || '' });
     setValue('name', company.name);
     setValue('cnpj', company.cnpj || '');
+    setValue('segmento', company.segmento || '');
     setIsEditDialogOpen(true);
   };
 
@@ -237,6 +249,43 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
     return [...new Set(periodos)].sort();
   };
 
+
+  const hasPassword = (company: any) => {
+    return company.company_passwords && company.company_passwords.id !== null;
+  };
+
+  const handleCompanyClick = (company: any) => {
+    // Se a empresa tem senha, sempre abrir modal de autenticação
+    if (hasPassword(company)) {
+      setPasswordAuthCompany({ id: company.id, name: company.name });
+      setIsAuthModalOpen(true);
+      return;
+    }
+    
+    // Prosseguir normalmente (empresa sem senha)
+    onSelectCompany(company.id);
+  };
+
+  const handlePasswordSuccess = () => {
+    if (passwordAuthCompany) {
+      onSelectCompany(passwordAuthCompany.id);
+    }
+    setPasswordAuthCompany(null);
+    setIsAuthModalOpen(false);
+  };
+
+  const handlePasswordCancel = () => {
+    setPasswordAuthCompany(null);
+    setIsAuthModalOpen(false);
+  };
+
+  const clearAuthentication = (companyName: string) => {
+    localStorage.removeItem(`company_auth_${companyName}`);
+    // Recarregar a página para atualizar o estado
+    window.location.reload();
+  };
+
+
   if (isLoading) {
     return (
       <Card>
@@ -259,10 +308,12 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
       <Card>
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Building2 className="h-5 w-5" />
-            Empresas ({filteredAndSortedCompanies?.length || 0})
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Building2 className="h-5 w-5" />
+              Empresas ({filteredAndSortedCompanies?.length || 0})
+            </CardTitle>
+          </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="w-full sm:w-auto">
@@ -296,6 +347,14 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                     {...register('cnpj')}
                     placeholder="00.000.000/0000-00 (opcional)"
                     maxLength={18}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="segmento">Segmento</Label>
+                  <Input
+                    id="segmento"
+                    {...register('segmento')}
+                    placeholder="Ex: Tecnologia, Varejo, Serviços (opcional)"
                   />
                 </div>
                 <DialogFooter>
@@ -495,6 +554,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                 <TableHead className="border-r border-border font-semibold text-foreground w-8 text-center">#</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground min-w-0 flex-1">Nome da Empresa</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-24 hidden sm:table-cell">CNPJ</TableHead>
+                <TableHead className="border-r border-border font-semibold text-foreground w-28 hidden sm:table-cell">Segmento</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden md:table-cell">RBT12</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden lg:table-cell">Entrada</TableHead>
                 <TableHead className="border-r border-border font-semibold text-foreground w-20 hidden lg:table-cell">Saída</TableHead>
@@ -509,7 +569,7 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                 <TableRow 
                   key={company.id}
                   className="cursor-pointer hover:bg-accent transition-colors border-b border-border bg-muted/30"
-                  onClick={() => onSelectCompany(company.id)}
+                  onClick={() => handleCompanyClick(company)}
                 >
                   <TableCell className="border-r border-border text-center text-muted-foreground font-mono text-sm w-8">
                     {index + 1}
@@ -518,6 +578,11 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-primary flex-shrink-0" />
                       <span className="truncate">{company.name}</span>
+                      {hasPassword(company) && (
+                        <div className="flex items-center gap-1">
+                          <Lock className="h-3 w-3 text-muted-foreground flex-shrink-0" title="Empresa protegida por senha" />
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="border-r border-border text-foreground w-24 hidden sm:table-cell">
@@ -528,9 +593,16 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                       }
                     </span>
                   </TableCell>
+                  <TableCell className="border-r border-border text-foreground w-28 hidden sm:table-cell">
+                    <span className="truncate block text-xs">
+                      {company.segmento || 'N/A'}
+                    </span>
+                  </TableCell>
                   <TableCell className="border-r border-border text-right text-foreground w-20 hidden md:table-cell">
                     <span className="truncate block text-xs">
-                      {company.latest_fiscal_data?.rbt12 ? 
+                      {hasPassword(company) ? (
+                        <span className="text-muted-foreground">***</span>
+                      ) : company.latest_fiscal_data?.rbt12 ? 
                         company.latest_fiscal_data.rbt12.toLocaleString('pt-BR', { 
                           style: 'currency', 
                           currency: 'BRL',
@@ -542,7 +614,9 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                   </TableCell>
                   <TableCell className="border-r border-border text-right text-green-600 dark:text-green-400 font-medium w-20 hidden lg:table-cell">
                     <span className="truncate block text-xs">
-                      {company.latest_fiscal_data?.entrada ? 
+                      {hasPassword(company) ? (
+                        <span className="text-muted-foreground">***</span>
+                      ) : company.latest_fiscal_data?.entrada ? 
                         company.latest_fiscal_data.entrada.toLocaleString('pt-BR', { 
                           style: 'currency', 
                           currency: 'BRL',
@@ -554,7 +628,9 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                   </TableCell>
                   <TableCell className="border-r border-border text-right text-red-600 dark:text-red-400 font-medium w-20 hidden lg:table-cell">
                     <span className="truncate block text-xs">
-                      {company.latest_fiscal_data?.saida ? 
+                      {hasPassword(company) ? (
+                        <span className="text-muted-foreground">***</span>
+                      ) : company.latest_fiscal_data?.saida ? 
                         company.latest_fiscal_data.saida.toLocaleString('pt-BR', { 
                           style: 'currency', 
                           currency: 'BRL',
@@ -566,7 +642,9 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                   </TableCell>
                   <TableCell className="border-r border-border text-right text-orange-600 dark:text-orange-400 font-medium w-20 hidden xl:table-cell">
                     <span className="truncate block text-xs">
-                      {company.latest_fiscal_data?.imposto ? 
+                      {hasPassword(company) ? (
+                        <span className="text-muted-foreground">***</span>
+                      ) : company.latest_fiscal_data?.imposto ? 
                         company.latest_fiscal_data.imposto.toLocaleString('pt-BR', { 
                           style: 'currency', 
                           currency: 'BRL',
@@ -578,7 +656,9 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
                   </TableCell>
                   <TableCell className="border-r border-border text-foreground w-24 hidden xl:table-cell">
                     <span className="truncate block text-xs">
-                      {company.latest_fiscal_data?.period || 'N/A'}
+                      {hasPassword(company) ? (
+                        <span className="text-muted-foreground">***</span>
+                      ) : company.latest_fiscal_data?.period || 'N/A'}
                     </span>
                   </TableCell>
                   <TableCell className="border-r border-border text-center w-24">
@@ -776,6 +856,14 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
               maxLength={18}
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-segmento">Segmento</Label>
+            <Input
+              id="edit-segmento"
+              {...registerEdit('segmento')}
+              placeholder="Ex: Tecnologia, Varejo, Serviços (opcional)"
+            />
+          </div>
           <DialogFooter>
             <Button
               type="button"
@@ -796,6 +884,29 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+
+    {/* Modal de autenticação por senha */}
+    <Dialog open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Lock className="h-5 w-5" />
+            Acesso Restrito
+          </DialogTitle>
+          <DialogDescription>
+            Esta empresa requer senha para visualizar os dados
+          </DialogDescription>
+        </DialogHeader>
+        {passwordAuthCompany && (
+          <CompanyPasswordAuth
+            companyName={passwordAuthCompany.name}
+            companyId={passwordAuthCompany.id}
+            onSuccess={handlePasswordSuccess}
+            onCancel={handlePasswordCancel}
+          />
+        )}
       </DialogContent>
     </Dialog>
   </div>

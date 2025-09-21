@@ -5,6 +5,7 @@ import { Dashboard } from '@/components/Dashboard';
 import { ExcelUpload } from '@/components/ExcelUpload';
 import { CompanyList } from '@/components/CompanyList';
 import { CompanyDetails } from '@/components/CompanyDetails';
+import { Settings } from '@/components/Settings';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
@@ -43,6 +44,8 @@ const Index = () => {
           );
         }
         return <CompanyList onSelectCompany={handleSelectCompany} />;
+      case 'settings':
+        return <Settings />;
       default:
         return <Dashboard />;
     }
@@ -59,11 +62,13 @@ const Index = () => {
                 {activeSection === 'dashboard' && 'Dashboard'}
                 {activeSection === 'import' && 'Importação de Dados'}
                 {activeSection === 'companies' && (selectedCompanyId ? 'Detalhes da Empresa' : 'Gestão de Empresas')}
+                {activeSection === 'settings' && 'Configurações'}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {activeSection === 'dashboard' && 'Visualize estatísticas gerais do sistema'}
                 {activeSection === 'import' && 'Importe dados de planilhas Excel'}
                 {activeSection === 'companies' && (selectedCompanyId ? 'Visualize todos os dados fiscais da empresa' : 'Gerencie e visualize dados das empresas')}
+                {activeSection === 'settings' && 'Gerencie senhas de acesso e configurações de segurança'}
               </p>
             </div>
           </header>
