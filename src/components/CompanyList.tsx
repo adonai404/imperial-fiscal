@@ -41,6 +41,7 @@ interface FilterState {
 }
 
 export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
+  const [selectedRegime, setSelectedRegime] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     status: 'todas',
@@ -72,7 +73,10 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
     mode: 'onChange'
   });
 
-  const filteredAndSortedCompanies = companies?.filter(company => {
+  // Primeiro filtrar por regime se selecionado
+  const regimeFilteredCompanies = selectedRegime ? getRegimeCompanies(selectedRegime) : companies || [];
+  
+  const filteredAndSortedCompanies = regimeFilteredCompanies.filter(company => {
     // Filtro de busca
     const matchesSearch = filters.search === '' || 
       company.name.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -285,6 +289,61 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
     window.location.reload();
   };
 
+  // Funções para gerenciar regimes
+  const getRegimeLabel = (regime: string) => {
+    const labels = {
+      'todas': 'Todas as empresas',
+      'lucro_real': 'Lucro Real',
+      'lucro_presumido': 'Lucro Presumido',
+      'simples_nacional': 'Simples Nacional',
+      'normais': 'Normais (Lucro Real + Lucro Presumido)'
+    };
+    return labels[regime as keyof typeof labels] || regime;
+  };
+
+  const getRegimeCompanies = (regime: string) => {
+    if (!companies) return [];
+    
+    // Para simular a integração com os dados da aba "Definir Regime das Empresas"
+    // Aqui você pode integrar com o estado global ou contexto que armazena os regimes
+    // Por enquanto, vou usar uma lógica de exemplo baseada no CNPJ
+    
+    switch (regime) {
+      case 'todas':
+        return companies;
+      case 'lucro_real':
+        // Exemplo: empresas com CNPJ terminando em 1, 2, 3
+        return companies.filter(company => 
+          company.cnpj && ['1', '2', '3'].includes(company.cnpj.slice(-1))
+        );
+      case 'lucro_presumido':
+        // Exemplo: empresas com CNPJ terminando em 4, 5, 6
+        return companies.filter(company => 
+          company.cnpj && ['4', '5', '6'].includes(company.cnpj.slice(-1))
+        );
+      case 'simples_nacional':
+        // Exemplo: empresas com CNPJ terminando em 7, 8, 9
+        return companies.filter(company => 
+          company.cnpj && ['7', '8', '9'].includes(company.cnpj.slice(-1))
+        );
+      case 'normais':
+        // Lucro Real + Lucro Presumido
+        return companies.filter(company => 
+          company.cnpj && ['1', '2', '3', '4', '5', '6'].includes(company.cnpj.slice(-1))
+        );
+      default:
+        return companies;
+    }
+  };
+
+  const handleRegimeSelection = (regime: string) => {
+    setSelectedRegime(regime);
+  };
+
+  const handleBackToRegimeSelection = () => {
+    setSelectedRegime(null);
+  };
+
 
   if (isLoading) {
     return (
@@ -303,16 +362,116 @@ export const CompanyList = ({ onSelectCompany }: CompanyListProps) => {
     );
   }
 
+  // Tela inicial de seleção de regime
+  if (!selectedRegime) {
+    return (
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+            <Building2 className="h-8 w-8 text-primary" />
+            Empresas
+          </h1>
+          <p className="text-muted-foreground">
+            Selecione o regime tributário para visualizar as empresas correspondentes
+          </p>
+        </div>
+
+        {/* Cards de seleção de regime */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[
+            { id: 'todas', label: 'Todas as empresas', description: 'Visualizar todas as empresas cadastradas', icon: Building2, color: 'blue' },
+            { id: 'lucro_real', label: 'Lucro Real', description: 'Empresas do regime de Lucro Real', icon: FileText, color: 'green' },
+            { id: 'lucro_presumido', label: 'Lucro Presumido', description: 'Empresas do regime de Lucro Presumido', icon: FileText, color: 'orange' },
+            { id: 'simples_nacional', label: 'Simples Nacional', description: 'Empresas do regime Simples Nacional', icon: FileText, color: 'purple' },
+            { id: 'normais', label: 'Normais', description: 'Lucro Real + Lucro Presumido', icon: FileText, color: 'indigo' }
+          ].map((regime) => {
+            const IconComponent = regime.icon;
+            const companyCount = getRegimeCompanies(regime.id).length;
+            
+            return (
+              <Card 
+                key={regime.id} 
+                className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105 border-2 hover:border-primary/50"
+                onClick={() => handleRegimeSelection(regime.id)}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className={`p-3 rounded-lg bg-${regime.color}-100 dark:bg-${regime.color}-900/20`}>
+                      <IconComponent className={`h-6 w-6 text-${regime.color}-600 dark:text-${regime.color}-400`} />
+                    </div>
+                    <Badge variant="secondary" className="text-sm">
+                      {companyCount} empresa{companyCount !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <h3 className="font-semibold text-lg mb-2">{regime.label}</h3>
+                  <p className="text-sm text-muted-foreground">{regime.description}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Estatísticas gerais */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Resumo Geral
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-blue-600">{companies?.length || 0}</p>
+                <p className="text-sm text-muted-foreground">Total</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">{getRegimeCompanies('lucro_real').length}</p>
+                <p className="text-sm text-muted-foreground">Lucro Real</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-orange-600">{getRegimeCompanies('lucro_presumido').length}</p>
+                <p className="text-sm text-muted-foreground">Lucro Presumido</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-purple-600">{getRegimeCompanies('simples_nacional').length}</p>
+                <p className="text-sm text-muted-foreground">Simples Nacional</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-indigo-600">{getRegimeCompanies('normais').length}</p>
+                <p className="text-sm text-muted-foreground">Normais</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card>
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Building2 className="h-5 w-5" />
-              Empresas ({filteredAndSortedCompanies?.length || 0})
-            </CardTitle>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBackToRegimeSelection}
+                className="flex items-center gap-2"
+              >
+                <ArrowUpDown className="h-4 w-4" />
+                Voltar
+              </Button>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Building2 className="h-5 w-5" />
+                {getRegimeLabel(selectedRegime)} ({filteredAndSortedCompanies?.length || 0})
+              </CardTitle>
+            </div>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
